@@ -130,4 +130,20 @@ describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
     expect(result).toContain("import { hashPassword } from './utils'");
     expect(result).not.toContain('unusedUtil');
   });
+
+  // Test 13: CommonJS require parser support
+  test('13. parseTSFile - CommonJS require parsing', () => {
+    const tempJSFile = path.join(__dirname, 'fixtures/commonjs_temp.js');
+    fs.writeFileSync(tempJSFile, "const utils = require('./utils');\nconst { hashPassword } = require('./utils');\n", 'utf-8');
+
+    try {
+      const parsed = parseTSFile(tempJSFile);
+      expect(parsed.imports.length).toBe(2);
+      expect(parsed.imports[0].source).toBe('./utils');
+      expect(parsed.imports[0].specifiers).toContain('utils');
+      expect(parsed.imports[1].specifiers).toContain('hashPassword');
+    } finally {
+      fs.unlinkSync(tempJSFile);
+    }
+  });
 });

@@ -159,6 +159,34 @@ export function parseTSFile(filePath: string): FileDependencies {
       addSymbol(statement.name.text, statement);
     } else if (ts.isVariableStatement(statement)) {
       statement.declarationList.declarations.forEach(decl => {
+        // Parse CommonJS require: const x = require('./y')
+        if (
+          decl.initializer &&
+          ts.isCallExpression(decl.initializer) &&
+          ts.isIdentifier(decl.initializer.expression) &&
+          decl.initializer.expression.text === 'require' &&
+          decl.initializer.arguments.length > 0 &&
+          ts.isStringLiteral(decl.initializer.arguments[0])
+        ) {
+          const source = decl.initializer.arguments[0].text;
+          const resolvedPath = resolveImportPath(filePath, source);
+          
+          const specifiers: string[] = [];
+          if (ts.isIdentifier(decl.name)) {
+            specifiers.push(decl.name.text);
+          } else if (ts.isObjectBindingPattern(decl.name)) {
+            decl.name.elements.forEach(el => {
+              if (ts.isIdentifier(el.name)) {
+                specifiers.push(el.name.text);
+              }
+            });
+          }
+
+          if (resolvedPath) {
+            imports.push({ source, resolvedPath, specifiers });
+          }
+        }
+
         if (ts.isIdentifier(decl.name)) {
           addSymbol(decl.name.text, decl);
         }
