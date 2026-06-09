@@ -1,0 +1,36 @@
+{
+  "name": "claude",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "mcp": "node dist/mcp/mcpServer.js",
+    "cli": "node dist/cli/cli.js",
+    "validate": "node dist/benchmark/validate.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Baran3575/ContextIt.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Baran3575/ContextIt/issues"
+  },
+  "homepage": "https://github.com/Baran3575/ContextIt#readme",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.9.2",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  }
+}
