@@ -106,7 +106,7 @@ export function parseRustFile(filePath: string): FileDependencies {
 
   // Helper to extract identifiers (dependencies)
   function getIdentifiers(text: string): string[] {
-    const idRegex = /[a-zA-Z_][a-zA-Z0-9_]*/g;
+    const idRegex = /[a-zA-Z_][a-zA-Z0-9_]*(?:::[a-zA-Z_][a-zA-Z0-9_]*)*/g;
     const found = text.match(idRegex) || [];
     return Array.from(new Set(found));
   }
@@ -143,7 +143,10 @@ export function parseRustFile(filePath: string): FileDependencies {
       imports.push({
         source,
         resolvedPath,
-        specifiers
+        specifiers: specifiers.map(spec => ({
+          localName: spec,
+          exportName: spec
+        }))
       });
     }
   }
@@ -156,7 +159,7 @@ export function parseRustFile(filePath: string): FileDependencies {
       imports.push({
         source,
         resolvedPath,
-        specifiers: ['*']
+        specifiers: [{ localName: source, exportName: '*' }]
       });
     }
   }

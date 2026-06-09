@@ -401,34 +401,81 @@ Detailed benchmark parameters, cost calculations, and reproduction instructions 
 
 ## Getting Started
 
-### Installation
+### Installation & Environment Setup
+
+#### 1. Standard Installation
 \`\`\`bash
 npm install
 npm run build
 \`\`\`
 
-### Running Tests and Validation
-To execute the automated unit test suite:
+#### 2. Termux / Android Setup
+To run ContextIt on Termux with high performance:
+1. Install Node.js LTS and Python:
+   \`\`\`bash
+   pkg install nodejs-lts python
+   \`\`\`
+2. Clone the repository and install dependencies:
+   \`\`\`bash
+   npm install
+   npm run build
+   \`\`\`
+3. ContextIt automatically interfaces with Termux's local Python interpreter for AST parsing without requiring extra external libraries or system dependencies.
+
+#### 3. Global Command Setup (Easier Usage)
+You can link ContextIt globally to use the \`contextit\` command directly anywhere:
 \`\`\`bash
-npm test
+npm link
+\`\`\`
+Now you can run:
+\`\`\`bash
+contextit --entry src/cli/cli.ts --symbol main
 \`\`\`
 
-To execute the compilation validation test (verifying that the pruned codebase compiles without syntax or type errors):
+---
+
+## Usage Modes
+
+### 1. CLI Usage
+Prune context starting from a specific file and entry point symbol:
 \`\`\`bash
-npm run validate
+contextit --entry src/cli/cli.ts --symbol main --mode decl --output context.md
+\`\`\`
+*(Prints a comprehensive, real-time context reduction report including raw tokens, pruned tokens, and cost savings directly to the console).*
+
+### 2. Benchmark Automation Mode
+ContextIt includes an automated, tam-nesnel (completely objective) benchmark runner that measures performance, compression ratios, and estimated Gemini 3.5 Flash input costs.
+To run the full suite (synthetic projects up to 300+ files, plus cloning and slicing real-world projects like Express, NestJS, Next.js, Fastify, Hono, and Lodash):
+\`\`\`bash
+contextit benchmark
+\`\`\`
+This automatically runs the slices, prints results, and regenerates both \`README.md\` and \`benchmark.md\` with actual performance metrics.
+
+### 3. Model Context Protocol (MCP) Integration
+ContextIt implements the Model Context Protocol (MCP) server. This allows AI coding assistants (e.g. Claude Desktop, Roo Code, Cline, Aider) to execute context slicing autonomously to keep contexts small and dramatically decrease LLM token consumption and costs.
+
+Add this configuration to your host configuration file (e.g., \`claude_desktop_config.json\` or Roo Code's mcp configuration):
+\`\`\`json
+{
+  "mcpServers": {
+    "contextit": {
+      "command": "node",
+      "args": ["/absolute/path/to/contextit/dist/mcp/mcpServer.js"]
+    }
+  }
+}
 \`\`\`
 
-### CLI Usage
-To prune context starting from an entry point and target symbol:
-\`\`\`bash
-npm run cli -- --entry src/cli/cli.ts --symbol main --mode decl --output context.md
-\`\`\`
+#### Available MCP Tools
+- \`get_pruned_context\`: Returns pruned code blocks targeting a specific class/function and its dependencies (with built-in token savings metadata prepended for the AI).
+- \`analyze_dependencies\`: Returns the full JSON dependency tree of imports starting from an entry file.
 
-### MCP Server Integration
-To run as an MCP server, configure your host application to invoke:
-\`\`\`bash
-node dist/mcp/mcpServer.js
-\`\`\`
+---
+
+## Slicing Optimization Tips
+1. **Target Specific Symbols**: When using the MCP server tool or CLI, specify the exact function or class you are editing (via \`--symbol\`). This ensures ContextIt prunes the context to only the code path the LLM actually needs, reducing token overhead by up to **99.9%**.
+2. **Use Declaration-Only Mode (\`--mode decl\` )**: For large utility or framework dependencies, use \`decl\` mode. This strips function bodies and keeps only type signatures, preserving the structure for context while saving thousands of tokens.
+3. **Prompt Caching Alignment**: ContextIt deterministically sorts output files by order of likelihood to change (placing large static types first and the entry file at the absolute end), which naturally aligns with prompt caching systems like Claude 3.5 Sonnet to maximize cache hits.
 
 ## License
 

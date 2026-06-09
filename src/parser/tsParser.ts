@@ -12,10 +12,15 @@ export interface SymbolInfo {
   dependencies: string[]; // local symbols referenced inside this symbol
 }
 
+export interface ImportSpecifierInfo {
+  localName: string;
+  exportName: string; // "default" for default imports, "*" for namespace imports, or the actual export name
+}
+
 export interface ImportInfo {
   source: string; // e.g. "./utils"
   resolvedPath: string; // e.g. "/path/to/utils.ts"
-  specifiers: string[]; // e.g. ["formatDate"] or ["default"]
+  specifiers: ImportSpecifierInfo[];
 }
 
 export interface FileDependencies {
@@ -157,17 +162,75 @@ export function parseTSFile(filePath: string): FileDependencies {
   const imports: ImportInfo[] = [];
   const symbols: SymbolInfo[] = [];
 
+  function isDefaultExport(node: ts.Node): boolean {
+    const modifiers = (node as any).modifiers;
+    if (modifiers && Array.isArray(modifiers)) {
+      return modifiers.some((m: any) => m.kind === ts.SyntaxKind.DefaultKeyword);
+    }
+    return false;
+  }
+
   // Helper to extract identifiers used within a node (for dependency resolution)
   function getReferencedIdentifiers(node: ts.Node): string[] {
     const refs = new Set<string>();
+    
+    // First, scan imports to detect namespace imports
+    const nsImports = new Set<string>();
+    sourceFile.statements.forEach(st => {
+      if (ts.isImportDeclaration(st) && st.importClause && st.importClause.namedBindings && ts.isNamespaceImport(st.importClause.namedBindings)) {
+        nsImports.add(st.importClause.namedBindings.name.text);
+      }
+      if (ts.isVariableStatement(st)) {
+        st.declarationList.declarations.forEach(decl => {
+          if (
+            decl.initializer &&
+            ts.isCallExpression(decl.initializer) &&
+            ts.isIdentifier(decl.initializer.expression) &&
+            decl.initializer.expression.text === 'require' &&
+            ts.isIdentifier(decl.name)
+          ) {
+            nsImports.add(decl.name.text);
+          }
+        });
+      }
+    });
+
     function visit(child: ts.Node) {
+      if (ts.isPropertyAccessExpression(child)) {
+        if (ts.isIdentifier(child.expression)) {
+          const ns = child.expression.text;
+          if (nsImports.has(ns)) {
+            const prop = child.name.text;
+            refs.add(`${ns}.${prop}`);
+            return;
+          }
+        }
+      }
+
+      // Check destructuring: const { foo, bar } = utils;
+      if (
+        ts.isVariableDeclaration(child) && 
+        child.initializer && 
+        ts.isIdentifier(child.initializer) && 
+        ts.isObjectBindingPattern(child.name)
+      ) {
+        const ns = child.initializer.text;
+        if (nsImports.has(ns)) {
+          child.name.elements.forEach(el => {
+            if (ts.isIdentifier(el.name)) {
+              const prop = el.propertyName && ts.isIdentifier(el.propertyName) ? el.propertyName.text : el.name.text;
+              refs.add(`${ns}.${prop}`);
+            }
+          });
+          return;
+        }
+      }
+
       if (ts.isIdentifier(child)) {
-        // Exclude the name of the declaration itself
         refs.add(child.text);
       }
       ts.forEachChild(child, visit);
     }
-    // Start visiting from children to avoid adding the declaration's own name
     ts.forEachChild(node, visit);
     return Array.from(refs);
   }
@@ -225,18 +288,27 @@ export function parseTSFile(filePath: string): FileDependencies {
       const source = (statement.moduleSpecifier as ts.StringLiteral).text;
       const resolvedPath = resolveImportPath(filePath, source);
 
-      const specifiers: string[] = [];
+      const specifiers: ImportSpecifierInfo[] = [];
       if (statement.importClause) {
         if (statement.importClause.name) {
-          specifiers.push('default');
+          specifiers.push({
+            localName: statement.importClause.name.text,
+            exportName: 'default'
+          });
         }
         if (statement.importClause.namedBindings) {
           if (ts.isNamedImports(statement.importClause.namedBindings)) {
             statement.importClause.namedBindings.elements.forEach(el => {
-              specifiers.push(el.name.text);
+              specifiers.push({
+                localName: el.name.text,
+                exportName: el.propertyName ? el.propertyName.text : el.name.text
+              });
             });
           } else if (ts.isNamespaceImport(statement.importClause.namedBindings)) {
-            specifiers.push('*');
+            specifiers.push({
+              localName: statement.importClause.namedBindings.name.text,
+              exportName: '*'
+            });
           }
         }
       }
@@ -247,14 +319,43 @@ export function parseTSFile(filePath: string): FileDependencies {
     }
 
     // 2. Process Exported/Top-level Declarations
-    if (ts.isFunctionDeclaration(statement) && statement.name) {
-      addSymbol(statement.name.text, statement);
-    } else if (ts.isClassDeclaration(statement) && statement.name) {
-      addSymbol(statement.name.text, statement);
+    if (ts.isFunctionDeclaration(statement)) {
+      if (statement.name) {
+        addSymbol(statement.name.text, statement);
+        if (isDefaultExport(statement)) {
+          addSymbol('default', statement);
+        }
+      } else if (isDefaultExport(statement)) {
+        addSymbol('default', statement);
+      }
+    } else if (ts.isClassDeclaration(statement)) {
+      if (statement.name) {
+        addSymbol(statement.name.text, statement);
+        if (isDefaultExport(statement)) {
+          addSymbol('default', statement);
+        }
+      } else if (isDefaultExport(statement)) {
+        addSymbol('default', statement);
+      }
     } else if (ts.isInterfaceDeclaration(statement) && statement.name) {
       addSymbol(statement.name.text, statement);
+      if (isDefaultExport(statement)) {
+        addSymbol('default', statement);
+      }
     } else if (ts.isTypeAliasDeclaration(statement) && statement.name) {
       addSymbol(statement.name.text, statement);
+      if (isDefaultExport(statement)) {
+        addSymbol('default', statement);
+      }
+    } else if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+      addSymbol('default', statement);
+    } else if (ts.isExportDeclaration(statement) && statement.exportClause && ts.isNamedExports(statement.exportClause)) {
+      statement.exportClause.elements.forEach(el => {
+        if (el.name.text === 'default') {
+          const localName = el.propertyName ? el.propertyName.text : el.name.text;
+          addSymbol('default', el);
+        }
+      });
     } else if (ts.isVariableStatement(statement)) {
       statement.declarationList.declarations.forEach(decl => {
         // Parse CommonJS require: const x = require('./y')
@@ -269,13 +370,19 @@ export function parseTSFile(filePath: string): FileDependencies {
           const source = decl.initializer.arguments[0].text;
           const resolvedPath = resolveImportPath(filePath, source);
           
-          const specifiers: string[] = [];
+          const specifiers: ImportSpecifierInfo[] = [];
           if (ts.isIdentifier(decl.name)) {
-            specifiers.push(decl.name.text);
+            specifiers.push({
+              localName: decl.name.text,
+              exportName: '*'
+            });
           } else if (ts.isObjectBindingPattern(decl.name)) {
             decl.name.elements.forEach(el => {
               if (ts.isIdentifier(el.name)) {
-                specifiers.push(el.name.text);
+                specifiers.push({
+                  localName: el.name.text,
+                  exportName: el.propertyName && ts.isIdentifier(el.propertyName) ? el.propertyName.text : el.name.text
+                });
               }
             });
           }
@@ -287,6 +394,9 @@ export function parseTSFile(filePath: string): FileDependencies {
 
         if (ts.isIdentifier(decl.name)) {
           addSymbol(decl.name.text, decl);
+          if (isDefaultExport(statement)) {
+            addSymbol('default', decl);
+          }
         }
       });
     }

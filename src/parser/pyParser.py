@@ -34,17 +34,23 @@ def parse_python_file(file_path):
                 self.names.add(node.id)
             self.generic_visit(node)
 
+        def visit_Attribute(self, node):
+            if isinstance(node.value, ast.Name):
+                self.names.add(f"{node.value.id}.{node.attr}")
+            else:
+                self.generic_visit(node)
+
     for node in tree.body:
         # 1. Extract Imports
         if isinstance(node, ast.Import):
             for name in node.names:
                 imports.append({
                     "source": name.name,
-                    "specifiers": [name.asname or name.name.split('.')[0]]
+                    "specifiers": [{"localName": name.asname or name.name.split('.')[0], "exportName": "*"}]
                 })
         elif isinstance(node, ast.ImportFrom):
             if node.module or node.level > 0:
-                specifiers = [n.asname or n.name for n in node.names]
+                specifiers = [{"localName": n.asname or n.name, "exportName": n.name} for n in node.names]
                 mod_name = node.module or ""
                 imports.append({
                     "source": "." * (node.level or 0) + mod_name,

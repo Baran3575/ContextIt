@@ -142,8 +142,8 @@ describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
       const parsed = parseTSFile(tempJSFile);
       expect(parsed.imports.length).toBe(2);
       expect(parsed.imports[0].source).toBe('./utils');
-      expect(parsed.imports[0].specifiers).toContain('utils');
-      expect(parsed.imports[1].specifiers).toContain('hashPassword');
+      expect(parsed.imports[0].specifiers).toContainEqual({ localName: 'utils', exportName: '*' });
+      expect(parsed.imports[1].specifiers).toContainEqual({ localName: 'hashPassword', exportName: 'hashPassword' });
     } finally {
       fs.unlinkSync(tempJSFile);
     }
@@ -302,6 +302,200 @@ describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
       // Cleanup
       if (fs.existsSync(scaleTempDir)) {
         fs.rmSync(scaleTempDir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  // Test 22: Namespace and renamed default imports resolution
+  test('22. DependencyResolver & CodePruner - Namespaces and Renamed Defaults', () => {
+    const tempDir = path.join(__dirname, 'fixtures/ns_test_temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir);
+    }
+
+    try {
+      const utilsFile = path.join(tempDir, 'utils.ts');
+      fs.writeFileSync(
+        utilsFile,
+        "export default function defaultHelper() { return 'default'; }\n" +
+        "export function hashPassword() { return 'hash'; }\n" +
+        "export function unusedUtil() { return 'unused'; }\n",
+        'utf-8'
+      );
+
+      const mainFile = path.join(tempDir, 'main.ts');
+      fs.writeFileSync(
+        mainFile,
+        "import myDefault, { hashPassword as hp } from './utils';\n" +
+        "export function run() {\n" +
+        "  myDefault();\n" +
+        "  hp();\n" +
+        "}\n",
+        'utf-8'
+      );
+
+      const mainNSFile = path.join(tempDir, 'mainNS.ts');
+      fs.writeFileSync(
+        mainNSFile,
+        "import * as ns from './utils';\n" +
+        "export function runNS() {\n" +
+        "  ns.hashPassword();\n" +
+        "}\n",
+        'utf-8'
+      );
+
+      const resolver = new DependencyResolver();
+      const pruner = new CodePruner();
+
+      // Test 1: Renamed default and alias named import
+      const res1 = resolver.resolve(mainFile, 'run');
+      expect(res1.filesToSymbols[utilsFile]).toBeDefined();
+      expect(res1.filesToSymbols[utilsFile].has('default')).toBe(true);
+      expect(res1.filesToSymbols[utilsFile].has('hashPassword')).toBe(true);
+      expect(res1.filesToSymbols[utilsFile].has('unusedUtil')).toBe(false);
+
+      const prune1 = pruner.prune(res1, { mode: 'full' }, mainFile);
+      expect(prune1).toContain("import myDefault, { hashPassword as hp } from './utils'");
+
+      // Test 2: Namespace property access
+      const res2 = resolver.resolve(mainNSFile, 'runNS');
+      expect(res2.filesToSymbols[utilsFile]).toBeDefined();
+      expect(res2.filesToSymbols[utilsFile].has('hashPassword')).toBe(true);
+      expect(res2.filesToSymbols[utilsFile].has('default')).toBe(false);
+      expect(res2.filesToSymbols[utilsFile].has('unusedUtil')).toBe(false);
+
+      const prune2 = pruner.prune(res2, { mode: 'full' }, mainNSFile);
+      expect(prune2).toContain("import * as ns from './utils'");
+    } finally {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  // Test 23: Python attribute dependency and renamed import resolution
+  test('23. DependencyResolver & CodePruner - Python Attributes and Renamed Imports', () => {
+    const tempDir = path.join(__dirname, 'fixtures/py_ns_test_temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir);
+    }
+
+    try {
+      const utilsFile = path.join(tempDir, 'utils.py');
+      fs.writeFileSync(
+        utilsFile,
+        "def hash_password():\n" +
+        "    return 'hash'\n" +
+        "\n" +
+        "def unused_helper():\n" +
+        "    return 'unused'\n",
+        'utf-8'
+      );
+
+      const mainFile = path.join(tempDir, 'main.py');
+      fs.writeFileSync(
+        mainFile,
+        "from .utils import hash_password as hp\n" +
+        "def run():\n" +
+        "    return hp()\n",
+        'utf-8'
+      );
+
+      const mainNSFile = path.join(tempDir, 'main_ns.py');
+      fs.writeFileSync(
+        mainNSFile,
+        "import utils as u\n" +
+        "def run_ns():\n" +
+        "    return u.hash_password()\n",
+        'utf-8'
+      );
+
+      const resolver = new DependencyResolver();
+      const pruner = new CodePruner();
+
+      // Test 1: Python renamed named import
+      const res1 = resolver.resolve(mainFile, 'run');
+      expect(res1.filesToSymbols[utilsFile]).toBeDefined();
+      expect(res1.filesToSymbols[utilsFile].has('hash_password')).toBe(true);
+      expect(res1.filesToSymbols[utilsFile].has('unused_helper')).toBe(false);
+
+      const prune1 = pruner.prune(res1, { mode: 'full' }, mainFile);
+      expect(prune1).toContain("from .utils import hash_password as hp");
+
+      // Test 2: Python namespace attribute access
+      const res2 = resolver.resolve(mainNSFile, 'run_ns');
+      expect(res2.filesToSymbols[utilsFile]).toBeDefined();
+      expect(res2.filesToSymbols[utilsFile].has('hash_password')).toBe(true);
+      expect(res2.filesToSymbols[utilsFile].has('unused_helper')).toBe(false);
+
+      const prune2 = pruner.prune(res2, { mode: 'full' }, mainNSFile);
+      expect(prune2).toContain("from . import utils as u");
+    } finally {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  // Test 24: Rust imports and wildcard module imports
+  test('24. DependencyResolver & CodePruner - Rust Imports and Modules', () => {
+    const tempDir = path.join(__dirname, 'fixtures/rs_ns_test_temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir);
+    }
+
+    try {
+      const utilsFile = path.join(tempDir, 'utils.rs');
+      fs.writeFileSync(
+        utilsFile,
+        "pub fn hash_password() -> String { String::from(\"hash\") }\n" +
+        "pub fn unused_helper() {}\n",
+        'utf-8'
+      );
+
+      const mainFile = path.join(tempDir, 'main.rs');
+      fs.writeFileSync(
+        mainFile,
+        "use utils::hash_password;\n" +
+        "pub fn run() {\n" +
+        "    hash_password();\n" +
+        "}\n",
+        'utf-8'
+      );
+
+      const mainModFile = path.join(tempDir, 'main_mod.rs');
+      fs.writeFileSync(
+        mainModFile,
+        "mod utils;\n" +
+        "pub fn run_mod() {\n" +
+        "    utils::hash_password();\n" +
+        "}\n",
+        'utf-8'
+      );
+
+      const resolver = new DependencyResolver();
+      const pruner = new CodePruner();
+
+      // Test 1: Rust use import
+      const res1 = resolver.resolve(mainFile, 'run');
+      expect(res1.filesToSymbols[utilsFile]).toBeDefined();
+      expect(res1.filesToSymbols[utilsFile].has('hash_password')).toBe(true);
+      expect(res1.filesToSymbols[utilsFile].has('unused_helper')).toBe(false);
+
+      const prune1 = pruner.prune(res1, { mode: 'full' }, mainFile);
+      expect(prune1).toContain("use utils::hash_password;");
+
+      // Test 2: Rust mod declaration
+      const res2 = resolver.resolve(mainModFile, 'run_mod');
+      expect(res2.filesToSymbols[utilsFile]).toBeDefined();
+      expect(res2.filesToSymbols[utilsFile].has('hash_password')).toBe(true);
+      expect(res2.filesToSymbols[utilsFile].has('unused_helper')).toBe(false);
+
+      const prune2 = pruner.prune(res2, { mode: 'full' }, mainModFile);
+      expect(prune2).toContain("mod utils;");
+    } finally {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
       }
     }
   });

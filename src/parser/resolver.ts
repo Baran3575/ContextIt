@@ -75,14 +75,28 @@ export class DependencyResolver {
         visitedSymbols.add(symbolKey);
 
         const fileDeps = this.getOrParseFile(filePath);
+
+        if (symbolName === '*') {
+          // Queue all top-level symbols in this file
+          fileDeps.symbols.forEach(s => {
+            queue.push({ filePath, symbolName: s.name });
+          });
+          continue;
+        }
+
         const symbolDef = fileDeps.symbols.find(s => s.name === symbolName);
 
         if (!symbolDef) {
           // Symbol not found in this file (could be an import from another file we haven't mapped yet)
           // Let's check if the symbol is imported
-          const imp = this.findImportForSymbol(fileDeps, symbolName);
-          if (imp && imp.resolvedPath) {
-            queue.push({ filePath: imp.resolvedPath, symbolName });
+          const matched = this.findImportForSymbol(fileDeps, symbolName);
+          if (matched && matched.import.resolvedPath) {
+            const { import: imp, specifier: spec } = matched;
+            if (spec.exportName === '*') {
+              queue.push({ filePath: imp.resolvedPath, symbolName: '*' });
+            } else {
+              queue.push({ filePath: imp.resolvedPath, symbolName: spec.exportName });
+            }
           }
           continue;
         }
@@ -96,11 +110,14 @@ export class DependencyResolver {
         // Analyze dependencies of this symbol
         for (const depName of symbolDef.dependencies) {
           // 1. Is it imported?
-          const imp = this.findImportForSymbol(fileDeps, depName);
-          if (imp && imp.resolvedPath) {
-            // It's imported from another file. Queue that symbol in the imported file.
-            // If imported as default/namespace, we still look up the same name for now.
-            queue.push({ filePath: imp.resolvedPath, symbolName: depName });
+          const matched = this.findImportForSymbol(fileDeps, depName);
+          if (matched && matched.import.resolvedPath) {
+            const { import: imp, specifier: spec } = matched;
+            if (spec.exportName === '*') {
+              queue.push({ filePath: imp.resolvedPath, symbolName: '*' });
+            } else {
+              queue.push({ filePath: imp.resolvedPath, symbolName: spec.exportName });
+            }
           } else {
             // 2. Is it a local symbol?
             const isLocal = fileDeps.symbols.some(s => s.name === depName);
@@ -121,15 +138,36 @@ export class DependencyResolver {
   /**
    * Finds which import declaration in the file brings in the given symbol.
    */
-  private findImportForSymbol(fileDeps: FileDependencies, symbolName: string): ImportInfo | null {
-    for (const imp of fileDeps.imports) {
-      // Direct import matching: `import { foo } from 'bar'`
-      if (imp.specifiers.includes(symbolName)) {
-        return imp;
+  private findImportForSymbol(fileDeps: FileDependencies, symbolName: string): { import: ImportInfo; specifier: any } | null {
+    const nsSeparator = symbolName.includes('::') ? '::' : '.';
+    const sepIndex = symbolName.indexOf(nsSeparator);
+    if (sepIndex !== -1) {
+      const nsName = symbolName.substring(0, sepIndex);
+      const propName = symbolName.substring(sepIndex + nsSeparator.length);
+      for (const imp of fileDeps.imports) {
+        for (const spec of imp.specifiers) {
+          if (spec.localName === nsName) {
+            if (spec.exportName === '*') {
+              return {
+                import: imp,
+                specifier: {
+                  localName: symbolName,
+                  exportName: propName
+                }
+              };
+            } else {
+              return { import: imp, specifier: spec };
+            }
+          }
+        }
       }
-      // Namespace/Default imports: we check if the file exists and let the resolver look for the symbol there
-      if (imp.specifiers.includes('*') || imp.specifiers.includes('default')) {
-        return imp;
+    }
+
+    for (const imp of fileDeps.imports) {
+      for (const spec of imp.specifiers) {
+        if (spec.localName === symbolName) {
+          return { import: imp, specifier: spec };
+        }
       }
     }
     return null;

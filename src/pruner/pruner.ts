@@ -5,6 +5,7 @@ import { SymbolInfo, ImportInfo } from '../parser/tsParser';
 
 export interface PruneOptions {
   mode: 'full' | 'decl';
+  noMetrics?: boolean;
 }
 
 /**
@@ -132,7 +133,7 @@ export class CodePruner {
    */
   public prune(result: PrunedContextResult, options: PruneOptions, entryFile: string): string {
     const absoluteEntry = path.resolve(entryFile);
-    let output = '# ContextIt: Compressed Project Context\n\n';
+    let bodyOutput = '';
     
     // Sort files: place entry file at the very end to maximize Claude's Prompt Caching
     const filePaths = Object.keys(result.filesToSymbols).sort((a, b) => {
@@ -152,8 +153,8 @@ export class CodePruner {
       if (ext === '.py') lang = 'python';
       else if (ext === '.rs') lang = 'rust';
 
-      output += `## File: \`${relativePath}\`\n`;
-      output += `\`\`\`${lang}\n`;
+      bodyOutput += `## File: \`${relativePath}\`\n`;
+      bodyOutput += `\`\`\`${lang}\n`;
 
       // 1. Output relevant imports with pruned specifiers
       const relevantImports = fileDeps.imports.filter(imp => {
@@ -166,9 +167,16 @@ export class CodePruner {
       if (relevantImports.length > 0) {
         relevantImports.forEach(imp => {
           const importedNeeded = result.filesToSymbols[imp.resolvedPath];
-          const activeSpecifiers = imp.specifiers.filter(spec => neededSymbols.has(spec) || importedNeeded.has(spec));
+          if (!importedNeeded) return;
+
+          const activeSpecifiers = imp.specifiers.filter(spec => {
+            if (spec.exportName === '*') {
+              return importedNeeded.size > 0;
+            }
+            return importedNeeded.has(spec.exportName);
+          });
           
-          if (activeSpecifiers.length === 0 && !imp.specifiers.includes('*')) {
+          if (activeSpecifiers.length === 0) {
             return;
           }
 
@@ -177,34 +185,80 @@ export class CodePruner {
             const formattedPath = importRelPath.startsWith('.') ? importRelPath : './' + importRelPath;
             const cleanPath = formattedPath.replace(/\.(ts|tsx|js|jsx)$/, '');
             
-            if (imp.specifiers.includes('*')) {
-              output += `import * as ${imp.specifiers[0]} from '${cleanPath}';\n`;
-            } else if (imp.specifiers.includes('default')) {
-              output += `import ${imp.specifiers[0]} from '${cleanPath}';\n`;
+            const namespaceSpec = activeSpecifiers.find(s => s.exportName === '*');
+            if (namespaceSpec) {
+              bodyOutput += `import * as ${namespaceSpec.localName} from '${cleanPath}';\n`;
             } else {
-              output += `import { ${activeSpecifiers.join(', ')} } from '${cleanPath}';\n`;
+              const defaultSpec = activeSpecifiers.find(s => s.exportName === 'default');
+              const namedSpecs = activeSpecifiers.filter(s => s.exportName !== 'default' && s.exportName !== '*');
+              const parts: string[] = [];
+              if (defaultSpec) {
+                parts.push(defaultSpec.localName);
+              }
+              if (namedSpecs.length > 0) {
+                const namedStrings = namedSpecs.map(s => {
+                  if (s.localName === s.exportName) {
+                    return s.localName;
+                  } else {
+                    return `${s.exportName} as ${s.localName}`;
+                  }
+                });
+                parts.push(`{ ${namedStrings.join(', ')} }`);
+              }
+              bodyOutput += `import ${parts.join(', ')} from '${cleanPath}';\n`;
             }
           } else if (lang === 'python') {
             const pythonModule = getPythonRelativeModule(filePath, imp.resolvedPath);
-            if (imp.specifiers.includes('*')) {
-              output += `from ${pythonModule} import *\n`;
+            const nsSpec = activeSpecifiers.find(s => s.exportName === '*');
+            if (nsSpec) {
+              if (pythonModule.startsWith('.')) {
+                const lastDot = pythonModule.lastIndexOf('.');
+                const parentDots = pythonModule.substring(0, lastDot);
+                const moduleName = pythonModule.substring(lastDot + 1);
+                if (nsSpec.localName && nsSpec.localName !== moduleName) {
+                  bodyOutput += `from ${parentDots || '.'} import ${moduleName} as ${nsSpec.localName}\n`;
+                } else {
+                  bodyOutput += `from ${parentDots || '.'} import ${moduleName}\n`;
+                }
+              } else {
+                if (nsSpec.localName && nsSpec.localName !== pythonModule) {
+                  bodyOutput += `import ${pythonModule} as ${nsSpec.localName}\n`;
+                } else {
+                  bodyOutput += `import ${pythonModule}\n`;
+                }
+              }
             } else {
-              output += `from ${pythonModule} import ${activeSpecifiers.join(', ')}\n`;
+              const namedStrings = activeSpecifiers.map(s => {
+                if (s.localName === s.exportName) {
+                  return s.localName;
+                } else {
+                  return `${s.exportName} as ${s.localName}`;
+                }
+              });
+              bodyOutput += `from ${pythonModule} import ${namedStrings.join(', ')}\n`;
             }
           } else if (lang === 'rust') {
-            if (imp.specifiers.includes('*')) {
+            const hasWildcard = activeSpecifiers.some(s => s.exportName === '*');
+            if (hasWildcard) {
               const modName = imp.source.split('::').pop();
-              output += `mod ${modName};\n`;
+              bodyOutput += `mod ${modName};\n`;
             } else {
-              if (activeSpecifiers.length === 1) {
-                output += `use ${imp.source}::${activeSpecifiers[0]};\n`;
-              } else {
-                output += `use ${imp.source}::{${activeSpecifiers.join(', ')}};\n`;
+              const namedStrings = activeSpecifiers.map(s => {
+                if (s.localName === s.exportName) {
+                  return s.localName;
+                } else {
+                  return `${s.exportName} as ${s.localName}`;
+                }
+              });
+              if (namedStrings.length === 1) {
+                bodyOutput += `use ${imp.source}::${namedStrings[0]};\n`;
+              } else if (namedStrings.length > 1) {
+                bodyOutput += `use ${imp.source}::{${namedStrings.join(', ')}};\n`;
               }
             }
           }
         });
-        output += '\n';
+        bodyOutput += '\n';
       }
 
       // 2. Output symbols
@@ -225,13 +279,40 @@ export class CodePruner {
           // Optimization: Strip comments
           symbolCode = stripComments(symbolCode, lang);
 
-          output += `${symbolCode}\n\n`;
+          bodyOutput += `${symbolCode}\n\n`;
         }
       }
 
-      output += '```\n\n';
+      bodyOutput += '```\n\n';
     }
 
+    // Calculate metrics
+    let rawTotalCharacters = 0;
+    for (const filePath of Object.keys(result.parsedFiles)) {
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        rawTotalCharacters += content.length;
+      } catch (e) {}
+    }
+
+    const rawTokens = Math.ceil(rawTotalCharacters / 3.7);
+    const prunedTokens = Math.ceil(bodyOutput.length / 3.7);
+    const reductionRatio = rawTokens / (prunedTokens || 1);
+    const COST_PER_TOKEN = 1.50 / 1_000_000;
+    const rawCost = (rawTokens * COST_PER_TOKEN).toFixed(5);
+    const prunedCost = (prunedTokens * COST_PER_TOKEN).toFixed(5);
+    const percentSavings = Math.round((1 - prunedTokens / (rawTokens || 1)) * 100);
+
+    let output = '# ContextIt: Compressed Project Context\n\n';
+    if (!options.noMetrics) {
+      output += `> [!NOTE]\n`;
+      output += `> **Context Slicing & Cost Reduction Metrics (Est.)**:\n`;
+      output += `> - **Raw Context Size**: ~${rawTokens.toLocaleString()} tokens\n`;
+      output += `> - **Pruned Context Size**: ~${prunedTokens.toLocaleString()} tokens (**${reductionRatio.toFixed(1)}x reduction**)\n`;
+      output += `> - **Gemini 3.5 Flash Cost**: $${rawCost} &rarr; $${prunedCost} (**${percentSavings}% savings**)\n\n`;
+    }
+
+    output += bodyOutput;
     return output;
   }
 }

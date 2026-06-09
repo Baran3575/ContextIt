@@ -15,12 +15,12 @@ The following table shows the context size difference when targeting specific en
 
 | Repository | Entry Point & Target | Raw Codebase (Tokens) | ContextIt Pruned | Reduction | Cost Difference (Gemini 3.5 Flash) |
 |---|---|---|---|---|---|
-| Express Framework | `createApplication` | 30,550 (50 files) | 278 (3 files) | 109.9x | $0.04583 &rarr; $0.00042 |
-| NestJS Realworld App | `bootstrap` | 9,587 (35 files) | 4,859 (26 files) | 2.0x | $0.01438 &rarr; $0.00729 |
-| Next.js Realworld App | `Home` | 22,878 (62 files) | 330 (3 files) | 69.3x | $0.03432 &rarr; $0.00049 |
-| Fastify Framework | `fastify` | 120,770 (69 files) | 10,693 (20 files) | 11.3x | $0.18116 &rarr; $0.01604 |
-| Hono Framework | `Hono` | 335,930 (254 files) | 15,130 (14 files) | 22.2x | $0.50389 &rarr; $0.02269 |
-| Lodash Library | `debounce` | 481,559 (26 files) | 29 (1 files) | 16605.5x | $0.72234 &rarr; $0.00004 |
+| Express Framework | `createApplication` | 30,550 (50 files) | 986 (4 files) | 31.0x | $0.04583 &rarr; $0.00148 |
+| NestJS Realworld App | `bootstrap` | 9,587 (35 files) | 4,916 (26 files) | 2.0x | $0.01438 &rarr; $0.00737 |
+| Next.js Realworld App | `Home` | 22,878 (62 files) | 7,724 (23 files) | 3.0x | $0.03432 &rarr; $0.01159 |
+| Fastify Framework | `fastify` | 120,770 (69 files) | 13,586 (28 files) | 8.9x | $0.18116 &rarr; $0.02038 |
+| Hono Framework | `Hono` | 335,930 (254 files) | 15,195 (14 files) | 22.1x | $0.50389 &rarr; $0.02279 |
+| Lodash Library | `debounce` | 481,559 (26 files) | 94 (1 files) | 5123.0x | $0.72234 &rarr; $0.00014 |
 
 
 ### Observations
@@ -37,8 +37,8 @@ The following table shows the context size difference when targeting specific en
 | Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
 | Raw Project Context | 10605 | 2867 | $0.00430 | Baseline |
-| ContextIt (Full AST Pruning) | 2386 | 645 | $0.00097 | 4.4x reduction |
-| ContextIt (Declaration-Only) | 2175 | 588 | $0.00088 | 4.9x reduction |
+| ContextIt (Full AST Pruning) | 2621 | 709 | $0.00106 | 4.0x reduction |
+| ContextIt (Declaration-Only) | 2410 | 652 | $0.00098 | 4.4x reduction |
 
 ### B. Large Project / Long-Token Simulation
 *Simulation setup: 40 files, each containing 10 unused verbose functions and 1 active dependency.*
@@ -46,8 +46,8 @@ The following table shows the context size difference when targeting specific en
 | Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
 | Raw Project Context | 87048 | 23527 | $0.03529 | Baseline |
-| ContextIt (Full AST Pruning) | 10963 | 2963 | $0.00444 | 7.9x reduction |
-| ContextIt (Declaration-Only) | 9052 | 2447 | $0.00367 | 9.6x reduction |
+| ContextIt (Full AST Pruning) | 11201 | 3028 | $0.00454 | 7.8x reduction |
+| ContextIt (Declaration-Only) | 9291 | 2512 | $0.00377 | 9.4x reduction |
 
 ### C. Scale Project Simulation (300+ Files)
 *Simulation setup: 300 files in a recursive import chain, each containing 5 unused helpers and 1 active recursive dependency.*
@@ -55,40 +55,24 @@ The following table shows the context size difference when targeting specific en
 | Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
 | Raw Project Context | 163001 | 44055 | $0.06608 | Baseline |
-| ContextIt (Full AST Pruning) | 68536 | 18524 | $0.02779 | 2.4x reduction |
-| ContextIt (Declaration-Only) | 55573 | 15020 | $0.02253 | 2.9x reduction |
+| ContextIt (Full AST Pruning) | 68775 | 18588 | $0.02788 | 2.4x reduction |
+| ContextIt (Declaration-Only) | 55812 | 15085 | $0.02263 | 2.9x reduction |
 
 ---
 
-
-## 3. Quality and Correctness Metrics
-Evaluating structural completeness and syntax correctness of the pruned code.
-
-### A. Static Quality Metrics (Synthetic Codebase Analysis)
-*Target: Tracing dependencies for `calculateTotal` in a project with 10 modules, each having 5 unused functions.*
-
-| Metric | Raw Codebase Context | ContextIt Pruned | Result |
-|---|---|---|---|
-| Context Size | 2164 tokens | 544 tokens | 4.0x reduction |
-| Compilation Validity | compiles successfully | compiles successfully | 0 syntax/type errors |
-| Dangling References | 0 | 0 | 0 dangling references |
-| Needed Symbols Density | 18.0% | 100.0% | 5.5x density ratio |
-| Unused Symbols Count | 50 unused symbols | 0 unused symbols | 0 unused symbols in context |
-
-
-## 4. Long-Term Cost Projection
+## 3. Long-Term Cost Projection
 Assuming a development session where a coding agent is queried 50 times to implement a new feature in the Next.js Realworld App:
 - Using Raw Context:
   - Total tokens sent: 50 * 22,878 = 1,143,900 tokens
   - Total Cost: $1.72
 - Using ContextIt (Pruned):
-  - Total tokens sent: 50 * 330 = 16,500 tokens
-  - Total Cost: $0.02
-- Difference: $1.70
+  - Total tokens sent: 50 * 7,724 = 386,200 tokens
+  - Total Cost: $0.58
+- Difference: $1.14
 
 ---
 
-## 5. Context Quality Verification Details
+## 4. Context Quality Verification Details
 
 ### Pruned Context Code Density
 In typical codebase contexts, a portion of the raw tokens consists of declarations that are not imported or referenced by the entry symbol. Pruning these symbols yields a representation containing only the referenced dependencies.
@@ -104,7 +88,7 @@ To verify the syntax correctness of the pruned code, ContextIt includes a valida
 
 ---
 
-## 6. How to Re-Run Benchmarks
+## 5. How to Re-Run Benchmarks
 To replicate the results in this document, run the following command at the project root:
 ```bash
 npm run benchmark:real
