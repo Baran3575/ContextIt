@@ -189,4 +189,51 @@ describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
       fs.unlinkSync(tempDbFile);
     }
   });
+
+  // Test 16: Python top-level assignments and annotations
+  test('16. parsePythonFile - top level assignments and annotations', () => {
+    const tempPyFile = path.join(__dirname, 'fixtures/py_assign_temp.py');
+    fs.writeFileSync(tempPyFile, "DB_HOST = 'localhost'\nPORT: int = 5432\n\ndef run():\n    print(DB_HOST)\n", 'utf-8');
+
+    try {
+      const parsed = parsePythonFile(tempPyFile);
+      const dbHost = parsed.symbols.find(s => s.name === 'DB_HOST');
+      const port = parsed.symbols.find(s => s.name === 'PORT');
+      const run = parsed.symbols.find(s => s.name === 'run');
+
+      expect(dbHost).toBeDefined();
+      expect(port).toBeDefined();
+      expect(run).toBeDefined();
+      expect(run!.dependencies).toContain('DB_HOST');
+    } finally {
+      fs.unlinkSync(tempPyFile);
+    }
+  });
+
+  // Test 17: Rust trait impl and macro rules
+  test('17. parseRustFile - trait impl and macro rules', () => {
+    const tempRsFile = path.join(__dirname, 'fixtures/rs_adv_temp.rs');
+    fs.writeFileSync(tempRsFile, "macro_rules! my_macro {\n    () => {};\n}\nimpl MyTrait for MyStruct {\n    fn bar() {}\n}\n", 'utf-8');
+
+    try {
+      const parsed = parseRustFile(tempRsFile);
+      const myMacro = parsed.symbols.find(s => s.name === 'my_macro');
+      const myStructImpl = parsed.symbols.find(s => s.name === 'MyStruct');
+      const myTraitImpl = parsed.symbols.find(s => s.name === 'MyTrait');
+
+      expect(myMacro).toBeDefined();
+      expect(myStructImpl).toBeDefined();
+      expect(myTraitImpl).toBeDefined();
+    } finally {
+      fs.unlinkSync(tempRsFile);
+    }
+  });
+
+  // Test 18: Python function body stripping
+  test('18. stripPythonFunctionBody - python decl mode', () => {
+    const pyCode = "def complex_func(a, b):\n    print('something')\n    return a + b";
+    const { stripPythonFunctionBody } = require('../src/pruner/pruner');
+    const result = stripPythonFunctionBody(pyCode);
+    expect(result).toBe("def complex_func(a, b):\n    pass");
+  });
 });

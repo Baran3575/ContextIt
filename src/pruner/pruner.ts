@@ -37,6 +37,63 @@ export function stripFunctionBody(code: string): string {
 }
 
 /**
+ * Strips the function body of a Python function, leaving only the signature and a pass statement.
+ */
+export function stripPythonFunctionBody(code: string): string {
+  const lines = code.split('\n');
+  if (lines.length === 0) return code;
+  
+  let sigLines: string[] = [];
+  let parenCount = 0;
+  let foundEnd = false;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    sigLines.push(line);
+    
+    for (let char of line) {
+      if (char === '(') parenCount++;
+      else if (char === ')') parenCount--;
+    }
+    
+    const cleanLine = line.replace(/#.*$/, '').trim();
+    if (parenCount === 0 && cleanLine.endsWith(':')) {
+      foundEnd = true;
+      break;
+    }
+  }
+  
+  if (foundEnd) {
+    const match = sigLines[0].match(/^(\s*)/);
+    const indent = match ? match[1] : '';
+    return sigLines.join('\n') + `\n${indent}    pass`;
+  }
+  
+  return code;
+}
+
+/**
+ * Calculates the relative Dotted module path for Python imports.
+ */
+export function getPythonRelativeModule(fromFile: string, toFile: string): string {
+  const relativePath = path.relative(path.dirname(fromFile), toFile);
+  const ext = path.extname(relativePath);
+  const withoutExt = relativePath.slice(0, -ext.length);
+  
+  const dotted = withoutExt.replace(/\\/g, '/');
+  const parts = dotted.split('/');
+  let upCount = 1;
+  let i = 0;
+  while (parts[i] === '..') {
+    upCount++;
+    i++;
+  }
+  const remainingParts = parts.slice(i);
+  const cleanRemaining = remainingParts.join('.');
+  return '.'.repeat(upCount) + cleanRemaining;
+}
+
+/**
  * Strips single-line comments that are not JSDoc or configuration.
  */
 export function stripComments(code: string): string {
@@ -73,8 +130,13 @@ export class CodePruner {
       const isEntryFile = filePath === absoluteEntry;
 
       const relativePath = path.relative(process.cwd(), filePath);
+      const ext = path.extname(filePath);
+      let lang = 'typescript';
+      if (ext === '.py') lang = 'python';
+      else if (ext === '.rs') lang = 'rust';
+
       output += `## File: \`${relativePath}\`\n`;
-      output += '```typescript\n';
+      output += `\`\`\`${lang}\n`;
 
       // 1. Output relevant imports with pruned specifiers
       const relevantImports = fileDeps.imports.filter(imp => {
@@ -86,20 +148,42 @@ export class CodePruner {
 
       if (relevantImports.length > 0) {
         relevantImports.forEach(imp => {
-          const importRelPath = path.relative(path.dirname(filePath), imp.resolvedPath);
-          const formattedPath = importRelPath.startsWith('.') ? importRelPath : './' + importRelPath;
+          const importedNeeded = result.filesToSymbols[imp.resolvedPath];
+          const activeSpecifiers = imp.specifiers.filter(spec => neededSymbols.has(spec) || importedNeeded.has(spec));
           
-          if (imp.specifiers.includes('*')) {
-            output += `import * as ${imp.specifiers[0]} from '${formattedPath}';\n`;
-          } else if (imp.specifiers.includes('default')) {
-            output += `import ${imp.specifiers[0]} from '${formattedPath}';\n`;
-          } else {
-            // Optimised: Only import specifiers that are actually needed/referenced in the target file
-            const importedNeeded = result.filesToSymbols[imp.resolvedPath];
-            const activeSpecifiers = imp.specifiers.filter(spec => neededSymbols.has(spec) || importedNeeded.has(spec));
+          if (activeSpecifiers.length === 0 && !imp.specifiers.includes('*')) {
+            return;
+          }
+
+          if (lang === 'typescript') {
+            const importRelPath = path.relative(path.dirname(filePath), imp.resolvedPath);
+            const formattedPath = importRelPath.startsWith('.') ? importRelPath : './' + importRelPath;
+            const cleanPath = formattedPath.replace(/\.(ts|tsx|js|jsx)$/, '');
             
-            if (activeSpecifiers.length > 0) {
-              output += `import { ${activeSpecifiers.join(', ')} } from '${formattedPath.replace(/\.(ts|tsx|js|jsx)$/, '')}';\n`;
+            if (imp.specifiers.includes('*')) {
+              output += `import * as ${imp.specifiers[0]} from '${cleanPath}';\n`;
+            } else if (imp.specifiers.includes('default')) {
+              output += `import ${imp.specifiers[0]} from '${cleanPath}';\n`;
+            } else {
+              output += `import { ${activeSpecifiers.join(', ')} } from '${cleanPath}';\n`;
+            }
+          } else if (lang === 'python') {
+            const pythonModule = getPythonRelativeModule(filePath, imp.resolvedPath);
+            if (imp.specifiers.includes('*')) {
+              output += `from ${pythonModule} import *\n`;
+            } else {
+              output += `from ${pythonModule} import ${activeSpecifiers.join(', ')}\n`;
+            }
+          } else if (lang === 'rust') {
+            if (imp.specifiers.includes('*')) {
+              const modName = imp.source.split('::').pop();
+              output += `mod ${modName};\n`;
+            } else {
+              if (activeSpecifiers.length === 1) {
+                output += `use ${imp.source}::${activeSpecifiers[0]};\n`;
+              } else {
+                output += `use ${imp.source}::{${activeSpecifiers.join(', ')}};\n`;
+              }
             }
           }
         });
@@ -116,7 +200,11 @@ export class CodePruner {
 
           // If declaration-only mode, and not the entry file, strip function bodies
           if (options.mode === 'decl' && !isEntryFile && symbol.type === 'function') {
-            symbolCode = stripFunctionBody(symbolCode);
+            if (lang === 'python') {
+              symbolCode = stripPythonFunctionBody(symbolCode);
+            } else {
+              symbolCode = stripFunctionBody(symbolCode);
+            }
           }
 
           output += `${symbolCode}\n\n`;

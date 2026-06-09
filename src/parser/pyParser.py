@@ -34,10 +34,11 @@ def parse_python_file(file_path):
                     "specifiers": [name.asname or name.name.split('.')[0]]
                 })
         elif isinstance(node, ast.ImportFrom):
-            if node.module:
+            if node.module or node.level > 0:
                 specifiers = [n.asname or n.name for n in node.names]
+                mod_name = node.module or ""
                 imports.append({
-                    "source": "." * (node.level or 0) + node.module,
+                    "source": "." * (node.level or 0) + mod_name,
                     "specifiers": specifiers
                 })
 
@@ -63,6 +64,58 @@ def parse_python_file(file_path):
                 "code": symbol_code,
                 "dependencies": list(extractor.names)
             })
+
+        # 3. Extract Top-level Assignments (constants, globals, annotations)
+        elif isinstance(node, ast.Assign):
+            names_to_add = []
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    names_to_add.append(target.id)
+                elif isinstance(target, (ast.Tuple, ast.List)):
+                    for elt in target.elts:
+                        if isinstance(elt, ast.Name):
+                            names_to_add.append(elt.id)
+            
+            for name in names_to_add:
+                start_line = node.lineno
+                end_line = getattr(node, 'end_lineno', start_line)
+                
+                lines = code.split('\n')[start_line-1:end_line]
+                symbol_code = '\n'.join(lines)
+                
+                extractor = DependencyExtractor(name)
+                extractor.visit(node.value)
+                
+                symbols.append({
+                    "name": name,
+                    "type": "other",
+                    "start": start_line,
+                    "end": end_line,
+                    "code": symbol_code,
+                    "dependencies": list(extractor.names)
+                })
+
+        elif isinstance(node, ast.AnnAssign):
+            if isinstance(node.target, ast.Name):
+                name = node.target.id
+                start_line = node.lineno
+                end_line = getattr(node, 'end_lineno', start_line)
+                
+                lines = code.split('\n')[start_line-1:end_line]
+                symbol_code = '\n'.join(lines)
+                
+                extractor = DependencyExtractor(name)
+                if node.value:
+                    extractor.visit(node.value)
+                
+                symbols.append({
+                    "name": name,
+                    "type": "other",
+                    "start": start_line,
+                    "end": end_line,
+                    "code": symbol_code,
+                    "dependencies": list(extractor.names)
+                })
 
     return {
         "filePath": file_path,

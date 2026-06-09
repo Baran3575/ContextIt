@@ -4,18 +4,28 @@ import { FileDependencies, SymbolInfo, ImportInfo } from './tsParser';
 
 /**
  * Resolves local Rust module paths.
+ * Supports standard module layouts as well as submodule directories.
  */
 export function resolveRustImportPath(importingFilePath: string, source: string): string | null {
   const dir = path.dirname(importingFilePath);
+  const baseName = path.basename(importingFilePath, '.rs');
   
   // Clean crate prefix
   let cleanSource = source.replace(/^crate::/, '').replace(/^super::/, '../').replace(/^self::/, './');
   const targetPath = cleanSource.replace(/::/g, '/');
 
   const potentialPaths = [
+    // Standard layout
     path.resolve(dir, targetPath + '.rs'),
     path.resolve(dir, path.join(targetPath, 'mod.rs')),
-    path.resolve(dir, '../', targetPath + '.rs'), // super fallback
+    
+    // Submodule layout: e.g. if db.rs declares mod queries, look under db/queries.rs
+    path.resolve(dir, baseName, targetPath + '.rs'),
+    path.resolve(dir, baseName, path.join(targetPath, 'mod.rs')),
+    
+    // Super fallback
+    path.resolve(dir, '../', targetPath + '.rs'),
+    path.resolve(dir, '../', path.join(targetPath, 'mod.rs')),
   ];
 
   for (const p of potentialPaths) {
@@ -28,8 +38,8 @@ export function resolveRustImportPath(importingFilePath: string, source: string)
 }
 
 /**
- * A semi-Rust parser using regex and brace-matching.
- * Extracts imports (use, mod) and symbols (fn, struct, enum, trait, impl).
+ * A robust Rust parser using regex, keyword scanning, and brace/paren/bracket matching.
+ * Extracts imports (use, mod) and symbols (fn, struct, enum, trait, impl, type, const, static, macro_rules!).
  */
 export function parseRustFile(filePath: string): FileDependencies {
   const absolutePath = path.resolve(filePath);
@@ -38,8 +48,15 @@ export function parseRustFile(filePath: string): FileDependencies {
   const imports: ImportInfo[] = [];
   const symbols: SymbolInfo[] = [];
 
+  // Helper to extract identifiers (dependencies)
+  function getIdentifiers(text: string): string[] {
+    const idRegex = /[a-zA-Z_][a-zA-Z0-9_]*/g;
+    const found = text.match(idRegex) || [];
+    return Array.from(new Set(found));
+  }
+
   // 1. Extract imports (use crate::x::y; or mod x;)
-  const useRegex = /use\s+([a-zA-Z0-9_:]+)(?:::\{([a-zA-Z0-9_,\s]+)\})?;/g;
+  const useRegex = /use\s+([a-zA-Z0-9_:]+)(?:::\{([a-zA-Z0-9_,\s\:]+)\})?;/g;
   let match;
   while ((match = useRegex.exec(code)) !== null) {
     const fullSource = match[1];
@@ -48,13 +65,14 @@ export function parseRustFile(filePath: string): FileDependencies {
     const sourceParts = fullSource.split('::');
     const lastPart = sourceParts[sourceParts.length - 1];
     
-    // If it is use crate::utils::hash; then utils is source, hash is specifier
-    // If use crate::utils::{hash, salt}; then utils is source, [hash, salt] are specifiers
     let source = fullSource;
     let specifiers: string[] = [];
 
     if (specifierString) {
-      specifiers = specifierString.split(',').map(s => s.trim());
+      specifiers = specifierString.split(',').map(s => {
+        const parts = s.trim().split(' as ');
+        return parts[0].trim();
+      });
     } else {
       source = sourceParts.slice(0, -1).join('::');
       specifiers = [lastPart];
@@ -74,7 +92,7 @@ export function parseRustFile(filePath: string): FileDependencies {
     }
   }
 
-  const modRegex = /mod\s+([a-zA-Z0-9_]+);/g;
+  const modRegex = /(?:pub\s+)?mod\s+([a-zA-Z0-9_]+)\s*;/g;
   while ((match = modRegex.exec(code)) !== null) {
     const source = match[1];
     const resolvedPath = resolveRustImportPath(absolutePath, source);
@@ -87,22 +105,15 @@ export function parseRustFile(filePath: string): FileDependencies {
     }
   }
 
-  // Helper to extract identifiers (dependencies)
-  function getIdentifiers(text: string): string[] {
-    const idRegex = /[a-zA-Z_][a-zA-Z0-9_]*/g;
-    const found = text.match(idRegex) || [];
-    return Array.from(new Set(found));
-  }
-
-  // 2. Extract symbols (fn, struct, enum, trait, impl)
-  // Match top-level blocks
-  const symbolRegex = /(?:pub\s+)?(?:fn|struct|enum|trait|impl)(?:\s+<[a-zA-Z0-9_,\s]+>)?\s+([a-zA-Z0-9_]+)/g;
+  // 2. Extract symbols (fn, struct, enum, trait, impl, type, const, static)
+  const symbolRegex = /(?:pub\s+)?(fn|struct|enum|trait|impl|type|const|static)(?:\s+<[a-zA-Z0-9_,\s]+>)?\s+([a-zA-Z0-9_]+)/g;
   
   while ((match = symbolRegex.exec(code)) !== null) {
-    const name = match[1];
+    const keyword = match[1];
+    const originalName = match[2];
     const startIndex = match.index;
     
-    // Find matching brace of block to get complete symbol code
+    // Find matching brace/semicolon to get complete symbol code
     let braceCount = 0;
     let endIndex = startIndex;
     let started = false;
@@ -115,7 +126,7 @@ export function parseRustFile(filePath: string): FileDependencies {
         braceCount--;
       }
       
-      // If it's a struct/enum declaration ending with semicolon (no body)
+      // If it ends with semicolon without body (consts, statics, type aliases, unit structs)
       if (!started && code[i] === ';') {
         endIndex = i + 1;
         break;
@@ -133,19 +144,116 @@ export function parseRustFile(filePath: string): FileDependencies {
     }
 
     const symbolCode = code.substring(startIndex, endIndex);
-    const dependencies = getIdentifiers(symbolCode).filter(id => id !== name);
+    const dependencies = getIdentifiers(symbolCode).filter(id => id !== originalName);
 
     // Determine type
     let type: SymbolInfo['type'] = 'other';
-    const keywordMatch = symbolCode.match(/(fn|struct|enum|trait|impl)/);
-    if (keywordMatch) {
-      if (keywordMatch[1] === 'fn') type = 'function';
-      else if (['struct', 'enum', 'trait'].includes(keywordMatch[1])) type = 'interface';
+    if (keyword === 'fn') {
+      type = 'function';
+    } else if (['struct', 'enum', 'trait'].includes(keyword)) {
+      type = 'interface';
     }
+
+    // Special logic for implementation blocks
+    if (keyword === 'impl') {
+      const header = code.substring(startIndex, code.indexOf('{', startIndex));
+      const cleanHeader = header.replace(/<[^>]+>/g, '');
+      const forMatch = cleanHeader.match(/for\s+([a-zA-Z0-9_]+)/);
+      
+      if (forMatch) {
+        // impl Trait for StructName
+        const structName = forMatch[1];
+        const traitMatch = cleanHeader.match(/impl\s+([a-zA-Z0-9_]+)\s+for/);
+        const traitName = traitMatch ? traitMatch[1] : null;
+
+        symbols.push({
+          name: structName,
+          type: 'other',
+          start: startIndex,
+          end: endIndex,
+          code: symbolCode,
+          dependencies: dependencies.filter(id => id !== structName)
+        });
+
+        if (traitName) {
+          symbols.push({
+            name: traitName,
+            type: 'other',
+            start: startIndex,
+            end: endIndex,
+            code: symbolCode,
+            dependencies: dependencies.filter(id => id !== traitName)
+          });
+        }
+      } else {
+        // impl StructName
+        const structMatch = cleanHeader.match(/impl\s+([a-zA-Z0-9_]+)/);
+        if (structMatch) {
+          const structName = structMatch[1];
+          symbols.push({
+            name: structName,
+            type: 'other',
+            start: startIndex,
+            end: endIndex,
+            code: symbolCode,
+            dependencies: dependencies.filter(id => id !== structName)
+          });
+        }
+      }
+    } else {
+      // General symbols
+      symbols.push({
+        name: originalName,
+        type,
+        start: startIndex,
+        end: endIndex,
+        code: symbolCode,
+        dependencies
+      });
+    }
+  }
+
+  // 3. Extract macro definitions (macro_rules!)
+  const macroRegex = /(?:#\[macro_export\]\s+)?macro_rules!\s+([a-zA-Z0-9_]+)/g;
+  while ((match = macroRegex.exec(code)) !== null) {
+    const name = match[1];
+    const startIndex = match.index;
+    
+    let braceCount = 0;
+    let endIndex = startIndex;
+    let started = false;
+    let openBrace = '{';
+    let closeBrace = '}';
+
+    for (let i = startIndex; i < code.length; i++) {
+      if (!started && (code[i] === '{' || code[i] === '(' || code[i] === '[')) {
+        openBrace = code[i];
+        closeBrace = code[i] === '{' ? '}' : (code[i] === '(' ? ')' : ']');
+        braceCount++;
+        started = true;
+      } else if (started && code[i] === openBrace) {
+        braceCount++;
+      } else if (started && code[i] === closeBrace) {
+        braceCount--;
+      }
+      
+      if (started && braceCount === 0) {
+        endIndex = i + 1;
+        break;
+      }
+    }
+
+    if (endIndex === startIndex) {
+      endIndex = code.indexOf('\n', startIndex);
+      if (endIndex === -1) endIndex = code.length;
+    }
+
+    const symbolCode = code.substring(startIndex, endIndex);
+    const dependencies = getIdentifiers(symbolCode).filter(id => id !== name);
 
     symbols.push({
       name,
-      type,
+      type: 'other',
       start: startIndex,
       end: endIndex,
       code: symbolCode,
