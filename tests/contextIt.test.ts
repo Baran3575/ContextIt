@@ -268,4 +268,41 @@ describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
       fs.unlinkSync(tempFile);
     }
   });
+
+  // Test 21: Resolver scale dependency resolution (50-file chain)
+  test('21. DependencyResolver - 50-file scale recursive import resolution', () => {
+    const scaleTempDir = path.join(__dirname, 'fixtures/scale_test_temp');
+    if (!fs.existsSync(scaleTempDir)) {
+      fs.mkdirSync(scaleTempDir);
+    }
+
+    try {
+      // Create 50 files where each file imports the previous one
+      fs.writeFileSync(path.join(scaleTempDir, 'utils_1.ts'), "export function usedHelper_1(v: number) { return v; }\nexport function unused() {}", 'utf-8');
+      for (let i = 2; i <= 50; i++) {
+        fs.writeFileSync(
+          path.join(scaleTempDir, `utils_${i}.ts`),
+          `import { usedHelper_${i - 1} } from './utils_${i - 1}';\nexport function usedHelper_${i}(v: number) { return usedHelper_${i - 1}(v) + 1; }\nexport function unused() {}`,
+          'utf-8'
+        );
+      }
+      const entryFile = path.join(scaleTempDir, 'main.ts');
+      fs.writeFileSync(entryFile, `import { usedHelper_50 } from './utils_50';\nexport function run(v: number) { return usedHelper_50(v); }`, 'utf-8');
+
+      const resolver = new DependencyResolver();
+      const resolution = resolver.resolve(entryFile, 'run');
+
+      // Verify that all 50 helper functions are resolved and included
+      expect(Object.keys(resolution.filesToSymbols).length).toBe(51); // 50 utils + 1 main
+      expect(resolution.filesToSymbols[path.join(scaleTempDir, 'utils_1.ts')].has('usedHelper_1')).toBe(true);
+      expect(resolution.filesToSymbols[path.join(scaleTempDir, 'utils_1.ts')].has('unused')).toBe(false);
+      expect(resolution.filesToSymbols[path.join(scaleTempDir, 'utils_50.ts')].has('usedHelper_50')).toBe(true);
+      expect(resolution.filesToSymbols[path.join(scaleTempDir, 'utils_50.ts')].has('unused')).toBe(false);
+    } finally {
+      // Cleanup
+      if (fs.existsSync(scaleTempDir)) {
+        fs.rmSync(scaleTempDir, { recursive: true, force: true });
+      }
+    }
+  });
 });
