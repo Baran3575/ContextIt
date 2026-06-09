@@ -302,42 +302,42 @@ export function runAllBenchmarks() {
   const nextSavings = (parseFloat(nextRawSessionCost) - parseFloat(nextPrunedSessionCost)).toFixed(2);
 
   // Generate realworld table
-  let realTable = '| Repository | Entry Point & Target | Raw Codebase (Tokens) | ContextIt Pruned | Reduction | Cost Saved (Gemini 3.5 Flash) |\n';
+  let realTable = '| Repository | Entry Point & Target | Raw Codebase (Tokens) | ContextIt Pruned | Reduction | Cost Difference (Gemini 3.5 Flash) |\n';
   realTable += '|---|---|---|---|---|---|\n';
   for (const r of realResults) {
-    realTable += `| **${r.repoName}** | \`${r.targetSymbol}\` | ${r.rawTokens.toLocaleString()} (${r.rawFilesCount} files) | **${r.prunedTokens.toLocaleString()}** (${r.prunedFilesCount} files) | **${r.reduction}** | ${r.rawCost} &rarr; ${r.prunedCost} |\n`;
+    realTable += `| ${r.repoName} | \`${r.targetSymbol}\` | ${r.rawTokens.toLocaleString()} (${r.rawFilesCount} files) | ${r.prunedTokens.toLocaleString()} (${r.prunedFilesCount} files) | ${r.reduction} | ${r.rawCost} &rarr; ${r.prunedCost} |\n`;
   }
 
   // =========================================================
   // 4. WRITE OBJECTIVE README.MD
   // =========================================================
-  const readmeContent = `# ContextIt 🛡️
+  const readmeContent = `# ContextIt
 
-ContextIt is an open-source, Abstract Syntax Tree (AST) powered context compressor and Model Context Protocol (MCP) server. It reduces token consumption, latency, and costs for AI coding agents by programmatically slicing codebases down to only the symbols and dependencies required to execute or understand a specific target.
+ContextIt is a tool designed to extract target symbols and their resolved dependencies from source code files. Using Abstract Syntax Tree (AST) analysis, it prunes unused functions, classes, type declarations, and imports to generate a minimized representation of a codebase for use in LLM contexts.
 
-### Quick Performance Overview (Gemini 3.5 Flash)
+### Context Size Metrics (Gemini 3.5 Flash)
 
-| Scenario | Raw Tokens | ContextIt (Pruned) | Reduction |
+| Repository / Scenario | Raw Codebase Context | ContextIt Pruned | Slicing Ratio |
 |---|---|---|---|
-| **Next.js Realworld App** | ${nextResult ? nextResult.rawTokens.toLocaleString() : '22,878'} | ${nextResult ? nextResult.prunedTokens.toLocaleString() : '345'} | **${nextResult ? nextResult.reduction : '66.3x'}** |
-| **Express Framework** | ${realResults.find(r => r.repoName === 'Express Framework')?.rawTokens.toLocaleString() || '30,550'} | ${realResults.find(r => r.repoName === 'Express Framework')?.prunedTokens.toLocaleString() || '278'} | **${realResults.find(r => r.repoName === 'Express Framework')?.reduction || '109.9x'}** |
-| **Fastify Framework** | ${realResults.find(r => r.repoName === 'Fastify Framework')?.rawTokens.toLocaleString() || '120,770'} | ${realResults.find(r => r.repoName === 'Fastify Framework')?.prunedTokens.toLocaleString() || '10,704'} | **${realResults.find(r => r.repoName === 'Fastify Framework')?.reduction || '11.3x'}** |
-| **Hono Framework** | ${realResults.find(r => r.repoName === 'Hono Framework')?.rawTokens.toLocaleString() || 'N/A'} | ${realResults.find(r => r.repoName === 'Hono Framework')?.prunedTokens.toLocaleString() || 'N/A'} | **${realResults.find(r => r.repoName === 'Hono Framework')?.reduction || 'N/A'}** |
-| **Lodash Library** | ${realResults.find(r => r.repoName === 'Lodash Library')?.rawTokens.toLocaleString() || 'N/A'} | ${realResults.find(r => r.repoName === 'Lodash Library')?.prunedTokens.toLocaleString() || 'N/A'} | **${realResults.find(r => r.repoName === 'Lodash Library')?.reduction || 'N/A'}** |
-| **Medium Project (Synthetic)** | ${rawMedTokens.toLocaleString()} | ${prunedMedDeclTokens.toLocaleString()} | **${reductionMedDecl}** |
-| **Large Project (Synthetic)** | ${rawLargeTokens.toLocaleString()} | ${prunedLargeDeclTokens.toLocaleString()} | **${reductionLargeDecl}** |
+| Next.js Realworld App | ${nextResult ? nextResult.rawTokens.toLocaleString() : '22,878'} tokens | ${nextResult ? nextResult.prunedTokens.toLocaleString() : '330'} tokens | ${nextResult ? nextResult.reduction : '69.3x'} |
+| Express Framework | ${realResults.find(r => r.repoName === 'Express Framework')?.rawTokens.toLocaleString() || '30,550'} tokens | ${realResults.find(r => r.repoName === 'Express Framework')?.prunedTokens.toLocaleString() || '278'} tokens | ${realResults.find(r => r.repoName === 'Express Framework')?.reduction || '109.9x'} |
+| Fastify Framework | ${realResults.find(r => r.repoName === 'Fastify Framework')?.rawTokens.toLocaleString() || '120,770'} tokens | ${realResults.find(r => r.repoName === 'Fastify Framework')?.prunedTokens.toLocaleString() || '10,693'} tokens | ${realResults.find(r => r.repoName === 'Fastify Framework')?.reduction || '11.3x'} |
+| Hono Framework | ${realResults.find(r => r.repoName === 'Hono Framework')?.rawTokens.toLocaleString() || 'N/A'} tokens | ${realResults.find(r => r.repoName === 'Hono Framework')?.prunedTokens.toLocaleString() || 'N/A'} tokens | ${realResults.find(r => r.repoName === 'Hono Framework')?.reduction || 'N/A'} |
+| Lodash Library | ${realResults.find(r => r.repoName === 'Lodash Library')?.rawTokens.toLocaleString() || 'N/A'} tokens | ${realResults.find(r => r.repoName === 'Lodash Library')?.prunedTokens.toLocaleString() || 'N/A'} tokens | ${realResults.find(r => r.repoName === 'Lodash Library')?.reduction || 'N/A'} |
+| Medium Project (Synthetic) | ${rawMedTokens.toLocaleString()} tokens | ${prunedMedDeclTokens.toLocaleString()} tokens | ${reductionMedDecl} |
+| Large Project (Synthetic) | ${rawLargeTokens.toLocaleString()} tokens | ${prunedLargeDeclTokens.toLocaleString()} tokens | ${reductionLargeDecl} |
 
-*Estimated tokens calculated at ~3.7 characters per token. Cost calculated based on Gemini 3.5 Flash pricing ($1.50 / million input tokens).*
+*Estimated tokens calculated at ~3.7 characters per token. Cost estimates are based on Gemini 3.5 Flash pricing ($1.50 per 1 million input tokens).*
 
-For detailed benchmark parameters, cost analysis, and steps to reproduce, see the [benchmark.md](benchmark.md) file.
+Detailed benchmark parameters, cost calculations, and reproduction instructions are available in [benchmark.md](benchmark.md).
 
 ## Features
 
-- **Multi-Language AST Dependency Resolution**: Traces recursive imports and references starting from a specific target class, function, or symbol. Supports JavaScript/TypeScript, Python, and Rust.
-- **AST Pruning**: Automatically strips out unused code, functions, classes, and declarations from imported utility files.
-- **Declaration-Only mode**: Further compresses dependencies by stripping function bodies, leaving only type definitions and function signatures.
-- **Prompt Caching Friendly**: Deterministically orders files to maximize Claude's Prompt Caching hit rates.
-- **MCP Server Support**: Works out-of-the-box as an MCP server with tools compatible with popular IDE agents.
+- **Multi-Language AST Dependency Resolution**: Traces recursive imports and references starting from a target class, function, or symbol. Supports JavaScript/TypeScript, Python, and Rust.
+- **AST Pruning**: Strips out unused code, functions, classes, and declarations from imported utility files.
+- **Declaration-Only Mode**: Removes function and method bodies from resolved dependencies, leaving only type definitions and signatures.
+- **Deterministic File Sorting**: Organizes output files deterministically to align with Prompt Caching requirements.
+- **MCP Server Support**: Implements a Model Context Protocol (MCP) server for integration with IDE agents.
 
 ## Getting Started
 
@@ -348,29 +348,29 @@ npm run build
 \`\`\`
 
 ### Running Tests and Validation
-To run the automated test suite:
+To execute the automated unit test suite:
 \`\`\`bash
 npm test
 \`\`\`
 
-To run the **Objective Compilation Validation** which verifies that the compressed context compiles with zero type errors:
+To execute the compilation validation test (verifying that the pruned codebase compiles without syntax or type errors):
 \`\`\`bash
 npm run validate
 \`\`\`
 
 ### CLI Usage
-To extract an optimized context starting from an entry point and target function:
+To prune context starting from an entry point and target symbol:
 \`\`\`bash
 npm run cli -- --entry src/cli/cli.ts --symbol main --mode decl --output context.md
 \`\`\`
 
 ### MCP Server Integration
-To run as an MCP server, configure your host application (like Claude Desktop) to run:
+To run as an MCP server, configure your host application to invoke:
 \`\`\`bash
 node dist/mcp/mcpServer.js
 \`\`\`
 
-## LICENSE
+## License
 
 MIT
 `;
@@ -378,7 +378,7 @@ MIT
   // =========================================================
   // 5. WRITE BENCHMARK.MD
   // =========================================================
-  const benchmarkContent = `# ContextIt: Objective Performance & Cost Benchmarks
+  const benchmarkContent = `# ContextIt: Performance and Cost Metrics
 
 This document contains detailed performance benchmarks and cost projections for ContextIt under synthetic and real-world scenarios. All measurements are reproducible using the included benchmark suite.
 
@@ -386,18 +386,18 @@ This document contains detailed performance benchmarks and cost projections for 
 1. **Raw Project Context**: The benchmark loader reads all relevant source files in the project directory, serializes their contents together with file path comments, and measures the token count.
 2. **ContextIt Pruned**: ContextIt runs its dependency resolver starting from the designated entry point and target symbol, prunes all unused symbols/imports, formats the output into markdown, and measures the token count.
 3. **Token Estimation**: Estimated tokens are calculated at a rate of 3.7 characters per token.
-4. **Cost Model**: Cost estimates are based on Gemini 3.5 Flash input token pricing: **$1.50 per 1 million input tokens**.
+4. **Cost Model**: Cost calculations are based on Gemini 3.5 Flash input token pricing: $1.50 per 1 million input tokens.
 
 ---
 
 ## 1. Real-World Project Benchmarks
-The following table shows the reduction in context size when targeting specific entry symbols inside real-world open-source frameworks and boilerplates:
+The following table shows the context size difference when targeting specific entry symbols inside real-world open-source frameworks and boilerplates:
 
 ${realTable}
 
 ### Observations
-- **NestJS App (1.2x)**: NestJS has a highly cohesive module import structure. Starting from the entry point (\`bootstrap\` in \`main.ts\`), the \`AppModule\` imports and references almost the entire codebase. The 1.2x reduction accurately reflects that the majority of code in the boilerplate is actually traversed and required for execution.
-- **Lodash Library (16,605.5x)**: When a developer imports a single function like \`debounce\` from Lodash, loading the entire codebase is highly inefficient. ContextIt prunes it down to only the \`debounce\` function and its active dependencies, demonstrating maximum reduction when dealing with large utility libraries.
+- NestJS App (1.2x): NestJS has a module structure. Starting from the entry point (\`bootstrap\` in \`main.ts\`), the \`AppModule\` imports and references the majority of the codebase. The 1.2x reduction reflects that the codebase is traversed and required for execution.
+- Lodash Library (16,605.5x): When importing a single function like \`debounce\` from Lodash, loading the entire codebase introduces token overhead. ContextIt prunes the context down to only the \`debounce\` function and its active dependencies.
 
 ---
 
@@ -408,46 +408,46 @@ ${realTable}
 
 | Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
-| **Raw Project Context** | ${rawMedSize} | ${rawMedTokens} | ${rawMedCost} | *Baseline* |
-| **ContextIt (Full AST Pruning)** | ${prunedMedFull.length} | ${prunedMedFullTokens} | ${prunedMedFullCost} | **${reductionMedFull} reduction** |
-| **ContextIt (Declaration-Only)** | ${prunedMedDecl.length} | ${prunedMedDeclTokens} | ${prunedMedDeclCost} | **${reductionMedDecl} reduction** |
+| Raw Project Context | ${rawMedSize} | ${rawMedTokens} | ${rawMedCost} | Baseline |
+| ContextIt (Full AST Pruning) | ${prunedMedFull.length} | ${prunedMedFullTokens} | ${prunedMedFullCost} | ${reductionMedFull} reduction |
+| ContextIt (Declaration-Only) | ${prunedMedDecl.length} | ${prunedMedDeclTokens} | ${prunedMedDeclCost} | ${reductionMedDecl} reduction |
 
 ### B. Large Project / Long-Token Simulation
 *Simulation setup: 40 files, each containing 10 unused verbose functions and 1 active dependency.*
 
 | Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
-| **Raw Project Context** | ${rawLargeSize} | ${rawLargeTokens} | ${rawLargeCost} | *Baseline* |
-| **ContextIt (Full AST Pruning)** | ${prunedLargeFull.length} | ${prunedLargeFullTokens} | ${prunedLargeFullCost} | **${reductionLargeFull} reduction** |
-| **ContextIt (Declaration-Only)** | ${prunedLargeDecl.length} | ${prunedLargeDeclTokens} | ${prunedLargeDeclCost} | **${reductionLargeDecl} reduction** |
+| Raw Project Context | ${rawLargeSize} | ${rawLargeTokens} | ${rawLargeCost} | Baseline |
+| ContextIt (Full AST Pruning) | ${prunedLargeFull.length} | ${prunedLargeFullTokens} | ${prunedLargeFullCost} | ${reductionLargeFull} reduction |
+| ContextIt (Declaration-Only) | ${prunedLargeDecl.length} | ${prunedLargeDeclTokens} | ${prunedLargeDeclCost} | ${reductionLargeDecl} reduction |
 
 ---
 
 ## 3. Long-Term Cost Projection
-Assuming a typical development session where a coding agent is queried **50 times** to implement a new feature in the Next.js Realworld App:
-- **Using Raw Context**:
-  - Total tokens sent: 50 * ${nextResult ? nextResult.rawTokens.toLocaleString() : '22,878'} = **${nextResult ? (nextResult.rawTokens * 50).toLocaleString() : '1,143,900'} tokens**
-  - Total Cost: **$${nextRawSessionCost}**
-- **Using ContextIt (Pruned)**:
-  - Total tokens sent: 50 * ${nextResult ? nextResult.prunedTokens.toLocaleString() : '345'} = **${nextResult ? (nextResult.prunedTokens * 50).toLocaleString() : '17,250'} tokens**
-  - Total Cost: **$${nextPrunedSessionCost}**
-- **Direct Net Savings**: **$${nextSavings}** (a **98%+** reduction in API expenses).
+Assuming a development session where a coding agent is queried 50 times to implement a new feature in the Next.js Realworld App:
+- Using Raw Context:
+  - Total tokens sent: 50 * ${nextResult ? nextResult.rawTokens.toLocaleString() : '22,878'} = ${nextResult ? (nextResult.rawTokens * 50).toLocaleString() : '1,143,900'} tokens
+  - Total Cost: $${nextRawSessionCost}
+- Using ContextIt (Pruned):
+  - Total tokens sent: 50 * ${nextResult ? nextResult.prunedTokens.toLocaleString() : '345'} = ${nextResult ? (nextResult.prunedTokens * 50).toLocaleString() : '17,250'} tokens
+  - Total Cost: $${nextPrunedSessionCost}
+- Difference: $${nextSavings}
 
 ---
 
-## 4. Context Quality & Verification
+## 4. Context Quality Verification Details
 
-### Signal-to-Noise Ratio (SNR) Optimization
-In typical codebase contexts, **95%+ of the tokens sent are unused noise**. Removing this noise eliminates distraction and mitigates "lost-in-the-middle" attention decay in long contexts.
+### Pruned Context Code Density
+In typical codebase contexts, a portion of the raw tokens consists of declarations that are not imported or referenced by the entry symbol. Pruning these symbols yields a representation containing only the referenced dependencies.
 
-### Objective Compilation Validation Test
-To verify the structural integrity of the pruned code, ContextIt includes an objective validation suite. This suite:
+### Compilation Validation Test
+To verify the syntax correctness of the pruned code, ContextIt includes a validation test that:
 1. Runs the context slicer starting from a test entry point targeting a specific symbol.
 2. Extracts code blocks from the generated markdown context.
-3. Automatically writes them to a temporary sandbox directory.
+3. Writes them to a temporary sandbox directory.
 4. Executes the TypeScript compiler (\`tsc\`) on the sandbox files.
 
-**Result:** The validation compiles with **0 errors**, proving that ContextIt generates a syntactically correct and self-contained codebase representation.
+**Result:** The validation compiles with 0 errors, confirming that the generated slice forms a syntactically valid TypeScript representation.
 
 ---
 
@@ -456,7 +456,7 @@ To replicate the results in this document, run the following command at the proj
 \`\`\`bash
 npm run benchmark:real
 \`\`\`
-The script will clone the latest versions of the test repositories into a temporary directory, run the dependency resolver and pruner, and update the benchmark figures in \`README.md\` and \`benchmark.md\`.
+The script will clone the test repositories into a temporary directory, run the dependency resolver and pruner, and update the benchmark figures in \`README.md\` and \`benchmark.md\`.
 `;
 
   const readmePath = path.resolve(__dirname, '../../README.md');

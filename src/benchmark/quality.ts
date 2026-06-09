@@ -193,9 +193,9 @@ export async function runQualityBenchmark() {
   console.log('\n--- STATIC QUALITY RESULTS ---');
   console.log(`Raw Context size: ${rawTokens} tokens`);
   console.log(`Pruned Context size: ${prunedTokens} tokens (${(rawTokens / prunedTokens).toFixed(1)}x reduction)`);
-  console.log(`Signal-to-Noise Ratio (SNR): Raw = ${rawSNR} | ContextIt = ${prunedSNR}`);
-  console.log(`Dangling References: ${danglingReferences} (0 is perfect)`);
-  console.log(`Attention Distraction (Unused Symbols): Raw = ${rawUnusedSymbols} | ContextIt = 0`);
+  console.log(`Needed Symbols Density: Raw = ${rawSNR} | ContextIt = ${prunedSNR}`);
+  console.log(`Dangling References: ${danglingReferences} (0 is correct)`);
+  console.log(`Unused Symbols Count: Raw = ${rawUnusedSymbols} | ContextIt = 0`);
 
   // 4. Dynamic LLM Reasoning Quality (if API Key is present)
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -222,13 +222,13 @@ export async function runQualityBenchmark() {
       const prunedCorrect = expectedKeywords.every(kw => prunedRes.text.includes(kw));
 
       dynamicResults = `
-### 3. Dynamic LLM Reasoning Quality (Gemini 3.5 Flash)
-*Evaluating accuracy, response latency, and word counts under identical query instructions.*
+### B. Dynamic Correctness and Latency Test
+*Evaluating response correctness, latency, and token count under identical query instructions.*
 
-| Context Mode | Token Cost | Response Latency | Accuracy / Correctness | Word Count |
+| Context Mode | Token Cost | Response Latency | Correctness Check | Word Count |
 |---|---|---|---|---|
-| **Raw Codebase Context** | ${rawTokens} tokens | ${rawRes.latencyMs}ms | ${rawCorrect ? '✅ 100%' : '❌ Incomplete'} | ${rawRes.text.split(/\s+/).length} words |
-| **ContextIt Pruned Context** | ${prunedTokens} tokens | **${prunedRes.latencyMs}ms** | ${prunedCorrect ? '✅ 100%' : '❌ Incomplete'} | ${prunedRes.text.split(/\s+/).length} words |
+| Raw Codebase Context | ${rawTokens} tokens | ${rawRes.latencyMs}ms | ${rawCorrect ? 'Correct' : 'Incomplete'} | ${rawRes.text.split(/\s+/).length} words |
+| ContextIt Pruned Context | ${prunedTokens} tokens | ${prunedRes.latencyMs}ms | ${prunedCorrect ? 'Correct' : 'Incomplete'} | ${prunedRes.text.split(/\s+/).length} words |
 
 #### Model Responses:
 **Raw Context Response:**
@@ -238,7 +238,7 @@ export async function runQualityBenchmark() {
 > ${prunedRes.text.trim()}
 
 **Analysis:**
-ContextIt reduces latency by **${((rawRes.latencyMs - prunedRes.latencyMs) / rawRes.latencyMs * 100).toFixed(0)}%** (from ${rawRes.latencyMs}ms to ${prunedRes.latencyMs}ms) while maintaining **100% reasoning accuracy**. Removing the extra functions and file overhead helps the model respond faster and avoid reading irrelevant context.
+In this test run, response latency was ${prunedRes.latencyMs}ms for the pruned context compared to ${rawRes.latencyMs}ms for the raw context. Correctness was verified against predefined expectations in both cases.
 `;
       console.log('\nDynamic quality evaluation completed successfully!');
     } catch (e: any) {
@@ -250,19 +250,19 @@ ContextIt reduces latency by **${((rawRes.latencyMs - prunedRes.latencyMs) / raw
 
   // 5. Update benchmark.md with the quality section
   const qualitySection = `
-## 3. Objective Quality & Accuracy Benchmark
-To evaluate the impact of pruning on code-reasoning quality, we measure compilation validity, dangling references, signal-to-noise ratio, and LLM reasoning correctness.
+## 3. Quality and Correctness Metrics
+Evaluating structural completeness and syntax correctness of the pruned code.
 
 ### A. Static Quality Metrics (Synthetic Codebase Analysis)
 *Target: Tracing dependencies for \`calculateTotal\` in a project with 10 modules, each having 5 unused functions.*
 
-| Quality Metric | Raw Codebase Context | ContextIt Pruned | Impact / Result |
+| Metric | Raw Codebase Context | ContextIt Pruned | Result |
 |---|---|---|---|
-| **Context Size** | ${rawTokens} tokens | **${prunedTokens} tokens** | **${(rawTokens / prunedTokens).toFixed(1)}x reduction** |
-| **Compilation Validity** | compiles successfully | **compiles successfully** | Zero syntax/type errors |
-| **Dangling References** | ${danglingReferences} | **0** | Perfect dependency resolution |
-| **Signal-to-Noise Ratio (SNR)** | ${rawSNR} | **${prunedSNR}** | **5.5x increase** in SNR |
-| **Attention Distraction** | ${rawUnusedSymbols} unused symbols | **0 unused symbols** | **100% elimination** of distraction |
+| Context Size | ${rawTokens} tokens | ${prunedTokens} tokens | ${(rawTokens / prunedTokens).toFixed(1)}x reduction |
+| Compilation Validity | compiles successfully | compiles successfully | 0 syntax/type errors |
+| Dangling References | ${danglingReferences} | 0 | 0 dangling references |
+| Needed Symbols Density | ${rawSNR} | ${prunedSNR} | 5.5x density ratio |
+| Unused Symbols Count | ${rawUnusedSymbols} unused symbols | 0 unused symbols | 0 unused symbols in context |
 ${dynamicResults}
 `;
 
@@ -272,13 +272,13 @@ ${dynamicResults}
     let content = fs.readFileSync(benchmarkPath, 'utf-8');
     
     // Check if section 3 already exists to avoid duplicate entries
-    if (content.includes('## 3. Objective Quality & Accuracy Benchmark')) {
-      const beforeStr = content.split('## 3. Objective Quality & Accuracy Benchmark')[0];
+    if (content.includes('## 3. Quality and Correctness Metrics')) {
+      const beforeStr = content.split('## 3. Quality and Correctness Metrics')[0];
       const afterStr = content.split('## 4. Long-Term Cost Projection')[1] || content.split('## 3. Long-Term Cost Projection')[1] || '';
       content = beforeStr + qualitySection + '\n## 4. Long-Term Cost Projection' + afterStr;
     } else if (content.includes('## 3. Long-Term Cost Projection')) {
       content = content.replace('## 3. Long-Term Cost Projection', qualitySection + '\n## 4. Long-Term Cost Projection');
-      content = content.replace('## 4. Context Quality & Verification', '## 5. Context Quality & Verification');
+      content = content.replace('## 4. Context Quality Verification Details', '## 5. Context Quality Verification Details');
       content = content.replace('## 5. How to Re-Run Benchmarks', '## 6. How to Re-Run Benchmarks');
     }
     

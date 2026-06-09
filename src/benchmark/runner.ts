@@ -180,70 +180,69 @@ export function runBenchmark() {
   const prunedLargeSessionCost = (prunedLargeDeclTokens * COST_PER_TOKEN * 50).toFixed(2);
 
   // 5. Generate and write README.md
-  const readmeContent = `# ContextIt 🛡️
+  const readmeContent = `# ContextIt
 
-ContextIt is an open-source, Abstract Syntax Tree (AST) powered context compressor and Model Context Protocol (MCP) server. It reduces token consumption, latency, and costs for AI coding agents (such as Claude Desktop, Cline, Roo Code, Aider) by programmatically slicing codebases down to only what is needed.
+ContextIt is a tool designed to extract target symbols and their resolved dependencies from source code files. Using Abstract Syntax Tree (AST) analysis, it prunes unused functions, classes, type declarations, and imports to generate a minimized representation of a codebase for use in LLM contexts.
 
 ### Quick Performance Overview (Gemini 3.5 Flash)
 
 | Scenario | Raw Tokens | ContextIt (Decl Mode) | Reduction |
 |---|---|---|---|
-| **Medium Project** (10 files) | ${rawMedTokens} | ${prunedMedDeclTokens} | **${reductionMedDecl}** |
-| **Large Project** (40 files) | ${rawLargeTokens} | ${prunedLargeDeclTokens} | **${reductionLargeDecl}** |
+| Medium Project (10 files) | ${rawMedTokens} | ${prunedMedDeclTokens} | ${reductionMedDecl} |
+| Large Project (40 files) | ${rawLargeTokens} | ${prunedLargeDeclTokens} | ${reductionLargeDecl} |
 
 ---
 
 ## Benchmarks
 
-This section provides completely objective benchmarks comparing raw project context serialization with ContextIt compression.
+This section compares raw codebase context serialization with pruned context outputs.
 
 ### 1. Medium Project Simulation
 *10 files, each containing 5 unused helpers and 1 active dependency.*
 
 | Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
-| **Raw Project Context** | ${rawMedSize} | ${rawMedTokens} | ${rawMedCost} | *Baseline* |
-| **ContextIt (Full AST Pruning)** | ${prunedMedFull.length} | ${prunedMedFullTokens} | ${prunedMedFullCost} | **${reductionMedFull} reduction** |
-| **ContextIt (Declaration-Only)** | ${prunedMedDecl.length} | ${prunedMedDeclTokens} | ${prunedMedDeclCost} | **${reductionMedDecl} reduction** |
+| Raw Project Context | ${rawMedSize} | ${rawMedTokens} | ${rawMedCost} | Baseline |
+| ContextIt (Full AST Pruning) | ${prunedMedFull.length} | ${prunedMedFullTokens} | ${prunedMedFullCost} | ${reductionMedFull} reduction |
+| ContextIt (Declaration-Only) | ${prunedMedDecl.length} | ${prunedMedDeclTokens} | ${prunedMedDeclCost} | ${reductionMedDecl} reduction |
 
 ### 2. Large Project / Long-Token Simulation
-*40 files, each containing 10 unused verbose functions and 1 active dependency. This represents a long-token enterprise scenario.*
+*40 files, each containing 10 unused verbose functions and 1 active dependency.*
 
 | Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
-| **Raw Project Context** | ${rawLargeSize} | ${rawLargeTokens} | ${rawLargeCost} | *Baseline* |
-| **ContextIt (Full AST Pruning)** | ${prunedLargeFull.length} | ${prunedLargeFullTokens} | ${prunedLargeFullCost} | **${reductionLargeFull} reduction** |
-| **ContextIt (Declaration-Only)** | ${prunedLargeDecl.length} | ${prunedLargeDeclTokens} | ${prunedLargeDeclCost} | **${reductionLargeDecl} reduction** |
+| Raw Project Context | ${rawLargeSize} | ${rawLargeTokens} | ${rawLargeCost} | Baseline |
+| ContextIt (Full AST Pruning) | ${prunedLargeFull.length} | ${prunedLargeFullTokens} | ${prunedLargeFullCost} | ${reductionLargeFull} reduction |
+| ContextIt (Declaration-Only) | ${prunedLargeDecl.length} | ${prunedLargeDeclTokens} | ${prunedLargeDeclCost} | ${reductionLargeDecl} reduction |
 
 *Estimated tokens calculated at ~3.7 characters per token. Costs calculated using Gemini 3.5 Flash pricing ($1.50 / million input tokens).*
 
 ---
 
 ## Long-Term Cost Impact
-In a typical development workflow where an agent is queried **50 times** over the course of implementing a feature on the Large Project:
-- **Raw Context Total Cost**: **$${rawLargeSessionCost}**
-- **ContextIt (Pruned) Total Cost**: **$${prunedLargeSessionCost}**
-- **Direct Net Savings**: **$${(parseFloat(rawLargeSessionCost) - parseFloat(prunedLargeSessionCost)).toFixed(2)}** (a **96%+** reduction in API expenses).
+Assuming a development session where a coding agent is queried 50 times over the course of implementing a feature on the Large Project:
+- Raw Context Total Cost: $${rawLargeSessionCost}
+- ContextIt (Pruned) Total Cost: $${prunedLargeSessionCost}
+- Difference: $${(parseFloat(rawLargeSessionCost) - parseFloat(prunedLargeSessionCost)).toFixed(2)}
 
 ---
 
-## Does Token Reduction Degrade or Improve Quality?
-A key concern is whether compressing context degrades the model's understanding. Objectively, ContextIt **improves output quality** by optimizing the context representation:
+## Quality and Correctness Metrics
 
-1. **Signal-to-Noise Ratio (SNR) Optimization**: In the Large Project simulation, **96.1% of the raw tokens sent are unused noise**. Removing this noise eliminates distraction and mitigates "lost-in-the-middle" attention decay in long contexts.
-2. **Syntactic Completeness Verification**: ContextIt compiles the generated slice using static analysis check (\`tsc\`) to prove that 100% of the type references, imports, and dependent functions are preserved.
-3. **Reduced Latency (TTFT)**: Processing ~2,400 tokens instead of 60,000+ tokens reduces Time-to-First-Token (TTFT) and overall LLM processing latency from seconds to milliseconds.
+1. **Context Density**: Pruning unused symbols reduces the total context size processed by the model.
+2. **Compilation Validity**: Pruned TypeScript code is compiled to verify that the slice compiles without type or syntax errors.
+3. **Latency**: A smaller context size generally corresponds to lower response latency.
 
 ---
 
-## Objective Compilation Validation Test
-To verify the structural integrity of the pruned code, ContextIt includes an objective validation suite. This suite:
+### Compilation Validation Test
+To verify the syntax correctness of the pruned code, ContextIt includes a validation test that:
 1. Runs the context slicer starting from a test entry point targeting a specific symbol.
 2. Extracts code blocks from the generated markdown context.
 3. Automatically writes them to a temporary sandbox directory.
 4. Executes the TypeScript compiler (\`tsc\`) on the sandbox files.
 
-**Result:** The validation compiles with **0 errors**, proving that ContextIt generates a syntactically correct and self-contained codebase representation while reducing token size by **5x-26x**.
+**Result:** The validation compiles with 0 errors, confirming that the generated slice forms a syntactically valid TypeScript representation.
 
 ---
 
@@ -269,7 +268,7 @@ To run the automated test suite:
 npm test
 \`\`\`
 
-To run the **Objective Compilation Validation (TAM NESNEL TEST)** which verifies that the compressed context has zero compilation errors:
+To run the compilation validation check that verifies that the compressed context has zero compilation errors:
 \`\`\`bash
 npm run validate
 \`\`\`
