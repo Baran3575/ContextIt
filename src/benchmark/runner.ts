@@ -170,9 +170,70 @@ export function runBenchmark() {
   const prunedLargeDeclCost = formatCost(prunedLargeDeclTokens);
   const reductionLargeDecl = (rawLargeTokens / prunedLargeDeclTokens).toFixed(1) + 'x';
 
+  // ==========================================
+  // BENCHMARK 3: SCALE PROJECT (300+ FILES) SIMULATION
+  // ==========================================
+  const scaleDir = path.resolve(__dirname, '../../tests/fixtures/benchmark_scale');
+  cleanDirectory(scaleDir);
+  fs.mkdirSync(scaleDir, { recursive: true });
+
+  const numFilesScale = 300;
+  const filesScale: string[] = [];
+
+  // Write the base case (first file) with no imports
+  let firstFileContent = '';
+  for (let u = 1; u <= 5; u++) {
+    firstFileContent += `export function unusedScaleHelper_1_${u}(req: any): any {\n  return req;\n}\n\n`;
+  }
+  firstFileContent += `export function usedScaleHelper_1(val: number): number {\n  return val * 1;\n}\n`;
+  const firstFilePath = path.join(scaleDir, 'utils_1.ts');
+  fs.writeFileSync(firstFilePath, firstFileContent, 'utf-8');
+  filesScale.push(firstFilePath);
+
+  // Write files 2 to 300, each importing the previous one
+  for (let i = 2; i <= numFilesScale; i++) {
+    const filePath = path.join(scaleDir, `utils_${i}.ts`);
+    let fileContent = `import { usedScaleHelper_${i - 1} } from './utils_${i - 1}';\n\n`;
+    for (let u = 1; u <= 5; u++) {
+      fileContent += `export function unusedScaleHelper_${i}_${u}(req: any): any {\n  return req;\n}\n\n`;
+    }
+    fileContent += `export function usedScaleHelper_${i}(val: number): number {\n  return usedScaleHelper_${i - 1}(val) + ${i};\n}\n`;
+    fs.writeFileSync(filePath, fileContent, 'utf-8');
+    filesScale.push(filePath);
+  }
+
+  // Write entry file main.ts
+  const entryScale = path.join(scaleDir, 'main.ts');
+  const entryScaleContent = `import { usedScaleHelper_${numFilesScale} } from './utils_${numFilesScale}';\n\nexport function calculateTotal(base: number): number {\n  return usedScaleHelper_${numFilesScale}(base);\n}\n`;
+  fs.writeFileSync(entryScale, entryScaleContent, 'utf-8');
+
+  // Measure Raw Scale Context
+  let rawScaleContext = '';
+  filesScale.forEach(f => {
+    rawScaleContext += `// File: ${path.relative(scaleDir, f)}\n` + fs.readFileSync(f, 'utf-8') + '\n';
+  });
+  rawScaleContext += `// File: main.ts\n` + fs.readFileSync(entryScale, 'utf-8');
+
+  const rawScaleSize = rawScaleContext.length;
+  const rawScaleTokens = estimateTokens(rawScaleContext);
+  const rawScaleCost = formatCost(rawScaleTokens);
+
+  // Resolve and Prune Scale Context
+  const resolutionScale = resolver.resolve(entryScale, 'calculateTotal');
+  const prunedScaleFull = pruner.prune(resolutionScale, { mode: 'full' }, entryScale);
+  const prunedScaleFullTokens = estimateTokens(prunedScaleFull);
+  const prunedScaleFullCost = formatCost(prunedScaleFullTokens);
+  const reductionScaleFull = (rawScaleTokens / prunedScaleFullTokens).toFixed(1) + 'x';
+
+  const prunedScaleDecl = pruner.prune(resolutionScale, { mode: 'decl' }, entryScale);
+  const prunedScaleDeclTokens = estimateTokens(prunedScaleDecl);
+  const prunedScaleDeclCost = formatCost(prunedScaleDeclTokens);
+  const reductionScaleDecl = (rawScaleTokens / prunedScaleDeclTokens).toFixed(1) + 'x';
+
   console.log('\n--- COMPREHENSIVE BENCHMARK RESULTS ---');
   console.log(`Medium Raw: ${rawMedTokens} tokens | Pruned Full: ${prunedMedFullTokens} (${reductionMedFull}) | Pruned Decl: ${prunedMedDeclTokens} (${reductionMedDecl})`);
   console.log(`Large Raw: ${rawLargeTokens} tokens | Pruned Full: ${prunedLargeFullTokens} (${reductionLargeFull}) | Pruned Decl: ${prunedLargeDeclTokens} (${reductionLargeDecl})`);
+  console.log(`Scale Raw: ${rawScaleTokens} tokens | Pruned Full: ${prunedScaleFullTokens} (${reductionScaleFull}) | Pruned Decl: ${prunedScaleDeclTokens} (${reductionScaleDecl})`);
   console.log('---------------------------------------\n');
 
   // Calculate long-term savings (50 developer iterations)
@@ -190,6 +251,7 @@ ContextIt is a tool designed to extract target symbols and their resolved depend
 |---|---|---|---|
 | Medium Project (10 files) | ${rawMedTokens} | ${prunedMedDeclTokens} | ${reductionMedDecl} |
 | Large Project (40 files) | ${rawLargeTokens} | ${prunedLargeDeclTokens} | ${reductionLargeDecl} |
+| Scale Project (300+ Files) | ${rawScaleTokens} | ${prunedScaleDeclTokens} | ${reductionScaleDecl} |
 
 ---
 
@@ -214,6 +276,15 @@ This section compares raw codebase context serialization with pruned context out
 | Raw Project Context | ${rawLargeSize} | ${rawLargeTokens} | ${rawLargeCost} | Baseline |
 | ContextIt (Full AST Pruning) | ${prunedLargeFull.length} | ${prunedLargeFullTokens} | ${prunedLargeFullCost} | ${reductionLargeFull} reduction |
 | ContextIt (Declaration-Only) | ${prunedLargeDecl.length} | ${prunedLargeDeclTokens} | ${prunedLargeDeclCost} | ${reductionLargeDecl} reduction |
+
+### 3. Scale Project Simulation (300+ Files)
+*Simulation setup: 300 files in a recursive import chain, each containing 5 unused helpers and 1 active recursive dependency.*
+
+| Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
+|---|---|---|---|---|
+| Raw Project Context | ${rawScaleSize} | ${rawScaleTokens} | ${rawScaleCost} | Baseline |
+| ContextIt (Full AST Pruning) | ${prunedScaleFull.length} | ${prunedScaleFullTokens} | ${prunedScaleFullCost} | ${reductionScaleFull} reduction |
+| ContextIt (Declaration-Only) | ${prunedScaleDecl.length} | ${prunedScaleDeclTokens} | ${prunedScaleDeclCost} | ${reductionScaleDecl} reduction |
 
 *Estimated tokens calculated at ~3.7 characters per token. Costs calculated using Gemini 3.5 Flash pricing ($1.50 / million input tokens).*
 
@@ -297,6 +368,7 @@ MIT
   // Clean up benchmark directories
   cleanDirectory(mediumDir);
   cleanDirectory(largeDir);
+  cleanDirectory(scaleDir);
 }
 
 if (require.main === module) {

@@ -13,6 +13,7 @@ ContextIt is a tool designed to extract target symbols and their resolved depend
 | Lodash Library | 481,559 tokens | 29 tokens | 16605.5x |
 | Medium Project (Synthetic) | 2,867 tokens | 588 tokens | 4.9x |
 | Large Project (Synthetic) | 23,527 tokens | 2,447 tokens | 9.6x |
+| Scale Project (300+ Files) | 44,055 tokens | 15,020 tokens | 2.9x |
 
 *Estimated tokens calculated at ~3.7 characters per token. Cost estimates are based on Gemini 3.5 Flash pricing ($1.50 per 1 million input tokens).*
 

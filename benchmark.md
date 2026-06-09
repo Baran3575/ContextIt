@@ -49,6 +49,15 @@ The following table shows the context size difference when targeting specific en
 | ContextIt (Full AST Pruning) | 10963 | 2963 | $0.00444 | 7.9x reduction |
 | ContextIt (Declaration-Only) | 9052 | 2447 | $0.00367 | 9.6x reduction |
 
+### C. Scale Project Simulation (300+ Files)
+*Simulation setup: 300 files in a recursive import chain, each containing 5 unused helpers and 1 active recursive dependency.*
+
+| Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
+|---|---|---|---|---|
+| Raw Project Context | 163001 | 44055 | $0.06608 | Baseline |
+| ContextIt (Full AST Pruning) | 68536 | 18524 | $0.02779 | 2.4x reduction |
+| ContextIt (Declaration-Only) | 55573 | 15020 | $0.02253 | 2.9x reduction |
+
 ---
 
 
