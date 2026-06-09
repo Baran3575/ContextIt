@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import { DependencyResolver } from '../src/parser/resolver';
 import { CodePruner, stripFunctionBody, stripComments } from '../src/pruner/pruner';
 import { resolveImportPath, parseTSFile } from '../src/parser/tsParser';
+import { parsePythonFile } from '../src/parser/pyParser';
+import { parseRustFile } from '../src/parser/rsParser';
 
 describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
   const mainFixturePath = path.resolve(__dirname, 'fixtures/main.ts');
@@ -144,6 +146,47 @@ describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
       expect(parsed.imports[1].specifiers).toContain('hashPassword');
     } finally {
       fs.unlinkSync(tempJSFile);
+    }
+  });
+
+  // Test 14: Python AST parser support
+  test('14. parsePythonFile - Python parsing', () => {
+    const tempPyFile = path.join(__dirname, 'fixtures/py_temp.py');
+    fs.writeFileSync(tempPyFile, "import os\nfrom .utils import check_auth\n\ndef my_func(x):\n    print(check_auth())\n    return x + 1\n", 'utf-8');
+
+    try {
+      const parsed = parsePythonFile(tempPyFile);
+      // It should resolve .utils since utils.ts/utils.js exists in fixtures (though it might not resolve to .py, but the resolving logic is tested)
+      expect(parsed.symbols.length).toBe(1);
+      expect(parsed.symbols[0].name).toBe('my_func');
+      expect(parsed.symbols[0].type).toBe('function');
+      expect(parsed.symbols[0].dependencies).toContain('check_auth');
+    } finally {
+      fs.unlinkSync(tempPyFile);
+    }
+  });
+
+  // Test 15: Rust parser support
+  test('15. parseRustFile - Rust parsing', () => {
+    const tempRsFile = path.join(__dirname, 'fixtures/rs_temp.rs');
+    const tempUtilsFile = path.join(__dirname, 'fixtures/utils.rs');
+    const tempDbFile = path.join(__dirname, 'fixtures/db.rs');
+
+    fs.writeFileSync(tempRsFile, "use crate::utils::hash;\nmod db;\n\npub fn run_query() {\n    let val = hash();\n}\n", 'utf-8');
+    fs.writeFileSync(tempUtilsFile, "pub fn hash() {}", 'utf-8');
+    fs.writeFileSync(tempDbFile, "", 'utf-8');
+
+    try {
+      const parsed = parseRustFile(tempRsFile);
+      expect(parsed.imports.length).toBeGreaterThanOrEqual(1);
+      expect(parsed.symbols.length).toBe(1);
+      expect(parsed.symbols[0].name).toBe('run_query');
+      expect(parsed.symbols[0].type).toBe('function');
+      expect(parsed.symbols[0].dependencies).toContain('hash');
+    } finally {
+      fs.unlinkSync(tempRsFile);
+      fs.unlinkSync(tempUtilsFile);
+      fs.unlinkSync(tempDbFile);
     }
   });
 });

@@ -1,5 +1,7 @@
 import * as path from 'path';
 import { parseTSFile, FileDependencies, SymbolInfo, ImportInfo } from './tsParser';
+import { parsePythonFile } from './pyParser';
+import { parseRustFile } from './rsParser';
 
 export interface PrunedContextResult {
   // Mapping of file path to the set of symbol names that are actually needed
@@ -13,7 +15,14 @@ export class DependencyResolver {
 
   private getOrParseFile(filePath: string): FileDependencies {
     if (!this.parsedFiles[filePath]) {
-      this.parsedFiles[filePath] = parseTSFile(filePath);
+      const ext = path.extname(filePath);
+      if (ext === '.py') {
+        this.parsedFiles[filePath] = parsePythonFile(filePath);
+      } else if (ext === '.rs') {
+        this.parsedFiles[filePath] = parseRustFile(filePath);
+      } else {
+        this.parsedFiles[filePath] = parseTSFile(filePath);
+      }
     }
     return this.parsedFiles[filePath];
   }

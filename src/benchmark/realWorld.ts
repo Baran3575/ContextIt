@@ -225,6 +225,20 @@ export function runAllBenchmarks() {
       dirName: 'fastify',
       entryFile: 'fastify.js',
       symbol: 'fastify'
+    },
+    {
+      name: 'Hono Framework',
+      url: 'https://github.com/honojs/hono.git',
+      dirName: 'hono',
+      entryFile: 'src/hono.ts',
+      symbol: 'Hono'
+    },
+    {
+      name: 'Lodash Library',
+      url: 'https://github.com/lodash/lodash.git',
+      dirName: 'lodash',
+      entryFile: 'lodash.js',
+      symbol: 'debounce'
     }
   ];
 
@@ -307,6 +321,9 @@ ContextIt is an open-source, Abstract Syntax Tree (AST) powered context compress
 |---|---|---|---|
 | **Next.js Realworld App** | ${nextResult ? nextResult.rawTokens.toLocaleString() : '22,878'} | ${nextResult ? nextResult.prunedTokens.toLocaleString() : '345'} | **${nextResult ? nextResult.reduction : '66.3x'}** |
 | **Express Framework** | ${realResults.find(r => r.repoName === 'Express Framework')?.rawTokens.toLocaleString() || '30,550'} | ${realResults.find(r => r.repoName === 'Express Framework')?.prunedTokens.toLocaleString() || '278'} | **${realResults.find(r => r.repoName === 'Express Framework')?.reduction || '109.9x'}** |
+| **Fastify Framework** | ${realResults.find(r => r.repoName === 'Fastify Framework')?.rawTokens.toLocaleString() || '120,770'} | ${realResults.find(r => r.repoName === 'Fastify Framework')?.prunedTokens.toLocaleString() || '10,704'} | **${realResults.find(r => r.repoName === 'Fastify Framework')?.reduction || '11.3x'}** |
+| **Hono Framework** | ${realResults.find(r => r.repoName === 'Hono Framework')?.rawTokens.toLocaleString() || 'N/A'} | ${realResults.find(r => r.repoName === 'Hono Framework')?.prunedTokens.toLocaleString() || 'N/A'} | **${realResults.find(r => r.repoName === 'Hono Framework')?.reduction || 'N/A'}** |
+| **Lodash Library** | ${realResults.find(r => r.repoName === 'Lodash Library')?.rawTokens.toLocaleString() || 'N/A'} | ${realResults.find(r => r.repoName === 'Lodash Library')?.prunedTokens.toLocaleString() || 'N/A'} | **${realResults.find(r => r.repoName === 'Lodash Library')?.reduction || 'N/A'}** |
 | **Medium Project (Synthetic)** | ${rawMedTokens.toLocaleString()} | ${prunedMedDeclTokens.toLocaleString()} | **${reductionMedDecl}** |
 | **Large Project (Synthetic)** | ${rawLargeTokens.toLocaleString()} | ${prunedLargeDeclTokens.toLocaleString()} | **${reductionLargeDecl}** |
 

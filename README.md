@@ -8,6 +8,9 @@ ContextIt is an open-source, Abstract Syntax Tree (AST) powered context compress
 |---|---|---|---|
 | **Next.js Realworld App** | 22,878 | 345 | **66.3x** |
 | **Express Framework** | 30,550 | 278 | **109.9x** |
+| **Fastify Framework** | 120,770 | 10,704 | **11.3x** |
+| **Hono Framework** | 335,930 | 15,794 | **21.3x** |
+| **Lodash Library** | 481,559 | 29 | **16605.5x** |
 | **Medium Project (Synthetic)** | 2,867 | 588 | **4.9x** |
 | **Large Project (Synthetic)** | 23,527 | 2,447 | **9.6x** |
 
@@ -26,6 +29,8 @@ Here is a performance comparison of loading an entire codebase vs. using **Conte
 | **NestJS Realworld App** | `bootstrap` | 9,587 (35 files) | **8,267** (26 files) | **1.2x** | $0.01438 &rarr; $0.01240 |
 | **Next.js Realworld App** | `Home` | 22,878 (62 files) | **345** (3 files) | **66.3x** | $0.03432 &rarr; $0.00052 |
 | **Fastify Framework** | `fastify` | 120,770 (69 files) | **10,704** (20 files) | **11.3x** | $0.18116 &rarr; $0.01606 |
+| **Hono Framework** | `Hono` | 335,930 (254 files) | **15,794** (14 files) | **21.3x** | $0.50389 &rarr; $0.02369 |
+| **Lodash Library** | `debounce` | 481,559 (26 files) | **29** (1 files) | **16605.5x** | $0.72234 &rarr; $0.00004 |
 
 
 *Estimated tokens calculated at ~3.7 characters per token. Cost calculated based on Gemini 3.5 Flash pricing ($1.50 / million input tokens).*
