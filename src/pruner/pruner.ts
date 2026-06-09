@@ -36,6 +36,22 @@ export function stripFunctionBody(code: string): string {
   return signature;
 }
 
+/**
+ * Strips single-line comments that are not JSDoc or configuration.
+ */
+export function stripComments(code: string): string {
+  return code
+    .split('\n')
+    .filter(line => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('//') && !trimmed.startsWith('///')) {
+        return false;
+      }
+      return true;
+    })
+    .join('\n');
+}
+
 export class CodePruner {
   /**
    * Prunes the resolved files and returns a single formatted markdown context string.
@@ -60,9 +76,8 @@ export class CodePruner {
       output += `## File: \`${relativePath}\`\n`;
       output += '```typescript\n';
 
-      // 1. Output relevant imports
+      // 1. Output relevant imports with pruned specifiers
       const relevantImports = fileDeps.imports.filter(imp => {
-        // Keep import if it resolves to a file we are including
         if (imp.resolvedPath && result.filesToSymbols[imp.resolvedPath]) {
           return true;
         }
@@ -79,7 +94,13 @@ export class CodePruner {
           } else if (imp.specifiers.includes('default')) {
             output += `import ${imp.specifiers[0]} from '${formattedPath}';\n`;
           } else {
-            output += `import { ${imp.specifiers.join(', ')} } from '${formattedPath.replace(/\.ts$/, '')}';\n`;
+            // Optimised: Only import specifiers that are actually needed/referenced in the target file
+            const importedNeeded = result.filesToSymbols[imp.resolvedPath];
+            const activeSpecifiers = imp.specifiers.filter(spec => neededSymbols.has(spec) || importedNeeded.has(spec));
+            
+            if (activeSpecifiers.length > 0) {
+              output += `import { ${activeSpecifiers.join(', ')} } from '${formattedPath.replace(/\.(ts|tsx|js|jsx)$/, '')}';\n`;
+            }
           }
         });
         output += '\n';
@@ -89,6 +110,9 @@ export class CodePruner {
       for (const symbol of fileDeps.symbols) {
         if (neededSymbols.has(symbol.name)) {
           let symbolCode = symbol.code;
+
+          // Optimization: Strip comments
+          symbolCode = stripComments(symbolCode);
 
           // If declaration-only mode, and not the entry file, strip function bodies
           if (options.mode === 'decl' && !isEntryFile && symbol.type === 'function') {

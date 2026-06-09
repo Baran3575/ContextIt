@@ -8,11 +8,11 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 3.7);
 }
 
-// Cost per million tokens for Claude 3.5 Sonnet
-const COST_PER_TOKEN = 3.00 / 1_000_000;
+// Cost per million tokens for Gemini 3.5 Flash
+const COST_PER_TOKEN = 0.075 / 1_000_000;
 
 function formatCost(tokens: number): string {
-  return `$${(tokens * COST_PER_TOKEN).toFixed(5)}`;
+  return `$${(tokens * COST_PER_TOKEN).toFixed(7)}`;
 }
 
 function cleanDirectory(dir: string) {
@@ -132,13 +132,13 @@ ContextIt is an open-source, Abstract Syntax Tree (AST) powered context compress
 ### 1. Token & Cost Reduction (Medium Project Simulation)
 Here is a performance comparison of sending the entire context of a simulated medium-sized project (10 modules, multiple helper functions) vs. using **ContextIt** with a target symbol:
 
-| Mode | Context Character Size | Estimated Tokens | Cost (Claude 3.5 Sonnet) | Context Reduction |
+| Mode | Context Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
 | **Raw Project Context** | ${rawSize} | ${rawTokens} | ${rawCost} | *Baseline* |
 | **ContextIt (Full AST Pruning)** | ${compFullSize} | ${compFullTokens} | ${compFullCost} | **${reductionFull} reduction** |
 | **ContextIt (Declaration-Only)** | ${compDeclSize} | ${compDeclTokens} | ${compDeclCost} | **${reductionDecl} reduction** |
 
-*Estimated tokens calculated at ~3.7 characters per token. Costs calculated using standard Claude 3.5 Sonnet pricing ($3.00 / million input tokens).*
+*Estimated tokens calculated at ~3.7 characters per token. Costs calculated using standard Gemini 3.5 Flash pricing ($0.075 / million input tokens).*
 
 ### 2. Objective Compilation Validation Test
 To verify the structural integrity of the pruned code, ContextIt includes an objective validation suite. This suite performs the following steps automatically:

@@ -7,13 +7,13 @@ ContextIt is an open-source, Abstract Syntax Tree (AST) powered context compress
 ### 1. Token & Cost Reduction (Medium Project Simulation)
 Here is a performance comparison of sending the entire context of a simulated medium-sized project (10 modules, multiple helper functions) vs. using **ContextIt** with a target symbol:
 
-| Mode | Context Character Size | Estimated Tokens | Cost (Claude 3.5 Sonnet) | Context Reduction |
+| Mode | Context Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
-| **Raw Project Context** | 18954 | 5123 | $0.01537 | *Baseline* |
-| **ContextIt (Full AST Pruning)** | 2375 | 642 | $0.00193 | **8.0x reduction** |
-| **ContextIt (Declaration-Only)** | 2164 | 585 | $0.00176 | **8.8x reduction** |
+| **Raw Project Context** | 18954 | 5123 | $0.0003842 | *Baseline* |
+| **ContextIt (Full AST Pruning)** | 2375 | 642 | $0.0000481 | **8.0x reduction** |
+| **ContextIt (Declaration-Only)** | 2164 | 585 | $0.0000439 | **8.8x reduction** |
 
-*Estimated tokens calculated at ~3.7 characters per token. Costs calculated using standard Claude 3.5 Sonnet pricing ($3.00 / million input tokens).*
+*Estimated tokens calculated at ~3.7 characters per token. Costs calculated using standard Gemini 3.5 Flash pricing ($0.075 / million input tokens).*
 
 ### 2. Objective Compilation Validation Test
 To verify the structural integrity of the pruned code, ContextIt includes an objective validation suite. This suite performs the following steps automatically:
