@@ -85,6 +85,7 @@ export function parsePythonFile(filePath: string): FileDependencies {
       start: sym.start,
       end: sym.end,
       code: sym.code,
+      declCode: sym.declCode || sym.code,
       dependencies: sym.dependencies || []
     }));
 

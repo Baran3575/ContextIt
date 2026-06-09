@@ -2,6 +2,15 @@ import ast
 import json
 import sys
 import os
+import copy
+
+class PyBodyStripper(ast.NodeTransformer):
+    def visit_FunctionDef(self, node):
+        node.body = [ast.Pass()]
+        return node
+    def visit_AsyncFunctionDef(self, node):
+        node.body = [ast.Pass()]
+        return node
 
 def parse_python_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -53,8 +62,20 @@ def parse_python_file(file_path):
             lines = code.split('\n')[start_line-1:end_line]
             symbol_code = '\n'.join(lines)
 
+            # Extract dependencies first
             extractor = DependencyExtractor(name)
             extractor.visit(node)
+
+            # Strip body for declaration code
+            decl_code = symbol_code
+            try:
+                # Deepcopy node so we do not mutate the main tree if it's used elsewhere
+                node_copy = copy.deepcopy(node)
+                stripped_node = PyBodyStripper().visit(node_copy)
+                decl_code = ast.unparse(stripped_node)
+            except Exception as e:
+                # Fallback to symbol_code
+                pass
 
             symbols.append({
                 "name": name,
@@ -62,6 +83,7 @@ def parse_python_file(file_path):
                 "start": start_line,
                 "end": end_line,
                 "code": symbol_code,
+                "declCode": decl_code,
                 "dependencies": list(extractor.names)
             })
 
@@ -92,6 +114,7 @@ def parse_python_file(file_path):
                     "start": start_line,
                     "end": end_line,
                     "code": symbol_code,
+                    "declCode": symbol_code,
                     "dependencies": list(extractor.names)
                 })
 
@@ -114,6 +137,7 @@ def parse_python_file(file_path):
                     "start": start_line,
                     "end": end_line,
                     "code": symbol_code,
+                    "declCode": symbol_code,
                     "dependencies": list(extractor.names)
                 })
 

@@ -38,6 +38,62 @@ export function resolveRustImportPath(importingFilePath: string, source: string)
 }
 
 /**
+ * Helper to strip the body of a Rust function.
+ */
+function stripRustFunctionBody(code: string): string {
+  const trimmed = code.trim();
+  const firstBrace = trimmed.indexOf('{');
+  if (firstBrace === -1) {
+    return code;
+  }
+  let signature = trimmed.substring(0, firstBrace).trim();
+  if (!signature.endsWith(';')) {
+    signature += ';';
+  }
+  return signature;
+}
+
+/**
+ * Helper to strip method bodies from Rust impl blocks, replacing them with empty braces.
+ */
+function stripRustImplBodies(code: string): string {
+  let result = '';
+  let currentIndex = 0;
+  
+  while (true) {
+    const fnIdx = code.indexOf('fn ', currentIndex);
+    if (fnIdx === -1) {
+      result += code.substring(currentIndex);
+      break;
+    }
+    
+    result += code.substring(currentIndex, fnIdx);
+    
+    const openBraceIdx = code.indexOf('{', fnIdx);
+    if (openBraceIdx === -1) {
+      result += code.substring(fnIdx, fnIdx + 3);
+      currentIndex = fnIdx + 3;
+      continue;
+    }
+    
+    result += code.substring(fnIdx, openBraceIdx + 1);
+    
+    let braceCount = 1;
+    let scanIdx = openBraceIdx + 1;
+    while (scanIdx < code.length && braceCount > 0) {
+      if (code[scanIdx] === '{') braceCount++;
+      else if (code[scanIdx] === '}') braceCount--;
+      scanIdx++;
+    }
+    
+    result += ' }';
+    currentIndex = scanIdx;
+  }
+  
+  return result;
+}
+
+/**
  * A robust Rust parser using regex, keyword scanning, and brace/paren/bracket matching.
  * Extracts imports (use, mod) and symbols (fn, struct, enum, trait, impl, type, const, static, macro_rules!).
  */
@@ -159,6 +215,7 @@ export function parseRustFile(filePath: string): FileDependencies {
       const header = code.substring(startIndex, code.indexOf('{', startIndex));
       const cleanHeader = header.replace(/<[^>]+>/g, '');
       const forMatch = cleanHeader.match(/for\s+([a-zA-Z0-9_]+)/);
+      const declCode = stripRustImplBodies(symbolCode);
       
       if (forMatch) {
         // impl Trait for StructName
@@ -172,6 +229,7 @@ export function parseRustFile(filePath: string): FileDependencies {
           start: startIndex,
           end: endIndex,
           code: symbolCode,
+          declCode,
           dependencies: dependencies.filter(id => id !== structName)
         });
 
@@ -182,6 +240,7 @@ export function parseRustFile(filePath: string): FileDependencies {
             start: startIndex,
             end: endIndex,
             code: symbolCode,
+            declCode,
             dependencies: dependencies.filter(id => id !== traitName)
           });
         }
@@ -196,18 +255,21 @@ export function parseRustFile(filePath: string): FileDependencies {
             start: startIndex,
             end: endIndex,
             code: symbolCode,
+            declCode,
             dependencies: dependencies.filter(id => id !== structName)
           });
         }
       }
     } else {
       // General symbols
+      const declCode = keyword === 'fn' ? stripRustFunctionBody(symbolCode) : symbolCode;
       symbols.push({
         name: originalName,
         type,
         start: startIndex,
         end: endIndex,
         code: symbolCode,
+        declCode,
         dependencies
       });
     }
@@ -257,6 +319,7 @@ export function parseRustFile(filePath: string): FileDependencies {
       start: startIndex,
       end: endIndex,
       code: symbolCode,
+      declCode: symbolCode,
       dependencies
     });
   }

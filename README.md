@@ -8,8 +8,8 @@ ContextIt is an open-source, Abstract Syntax Tree (AST) powered context compress
 |---|---|---|---|
 | **Next.js Realworld App** | 22,878 | 330 | **69.3x** |
 | **Express Framework** | 30,550 | 278 | **109.9x** |
-| **Fastify Framework** | 120,770 | 10,704 | **11.3x** |
-| **Hono Framework** | 335,930 | 15,794 | **21.3x** |
+| **Fastify Framework** | 120,770 | 10,693 | **11.3x** |
+| **Hono Framework** | 335,930 | 15,130 | **22.2x** |
 | **Lodash Library** | 481,559 | 29 | **16605.5x** |
 | **Medium Project (Synthetic)** | 2,867 | 588 | **4.9x** |
 | **Large Project (Synthetic)** | 23,527 | 2,447 | **9.6x** |

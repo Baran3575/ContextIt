@@ -236,4 +236,36 @@ describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
     const result = stripPythonFunctionBody(pyCode);
     expect(result).toBe("def complex_func(a, b):\n    pass");
   });
+
+  // Test 19: TS class method body stripping
+  test('19. cleanTSNodeForDecl - class method stripping', () => {
+    const { cleanTSNodeForDecl } = require('../src/parser/tsParser');
+    const ts = require('typescript');
+    const code = "class Test { constructor(x: number) { this.x = x; } getVal() { return 1; } }";
+    const sourceFile = ts.createSourceFile('test.ts', code, ts.ScriptTarget.Latest, true);
+    const classNode = sourceFile.statements[0];
+    const result = cleanTSNodeForDecl(classNode, sourceFile);
+    expect(result).toContain("constructor(x: number);");
+    expect(result).toContain("getVal();");
+    expect(result).not.toContain("this.x = x;");
+    expect(result).not.toContain("return 1;");
+  });
+
+  // Test 20: Rust impl method body stripping
+  test('20. parseRustFile - impl method stripping', () => {
+    const { parseRustFile } = require('../src/parser/rsParser');
+    const fs = require('fs');
+    const tempFile = path.join(__dirname, 'fixtures/rs_impl_temp.rs');
+    fs.writeFileSync(tempFile, "impl MyStruct {\n    pub fn get_val(&self) -> i32 {\n        123\n    }\n}\n", 'utf-8');
+
+    try {
+      const parsed = parseRustFile(tempFile);
+      const myStruct = parsed.symbols.find((s: any) => s.name === 'MyStruct');
+      expect(myStruct).toBeDefined();
+      expect(myStruct!.declCode).toContain("pub fn get_val(&self) -> i32 { }");
+      expect(myStruct!.declCode).not.toContain("123");
+    } finally {
+      fs.unlinkSync(tempFile);
+    }
+  });
 });

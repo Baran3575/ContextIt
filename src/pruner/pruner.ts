@@ -96,8 +96,25 @@ export function getPythonRelativeModule(fromFile: string, toFile: string): strin
 /**
  * Strips single-line comments that are not JSDoc or configuration.
  */
-export function stripComments(code: string): string {
-  return code
+export function stripComments(code: string, lang?: string): string {
+  if (lang === 'python') {
+    return code
+      .split('\n')
+      .filter(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('#') && !trimmed.startsWith('##')) {
+          return false;
+        }
+        return true;
+      })
+      .join('\n');
+  }
+
+  // For JS, TS, and Rust
+  // Strip block comments (/* but not /**)
+  let cleaned = code.replace(/\/\*(?!\*)([^*]|\*(?!\/))*\*\//g, '');
+  
+  return cleaned
     .split('\n')
     .filter(line => {
       const trimmed = line.trim();
@@ -195,17 +212,18 @@ export class CodePruner {
         if (neededSymbols.has(symbol.name)) {
           let symbolCode = symbol.code;
 
-          // Optimization: Strip comments
-          symbolCode = stripComments(symbolCode);
-
-          // If declaration-only mode, and not the entry file, strip function bodies
-          if (options.mode === 'decl' && !isEntryFile && symbol.type === 'function') {
+          if (options.mode === 'decl' && !isEntryFile && symbol.declCode) {
+            symbolCode = symbol.declCode;
+          } else if (options.mode === 'decl' && !isEntryFile && symbol.type === 'function') {
             if (lang === 'python') {
               symbolCode = stripPythonFunctionBody(symbolCode);
             } else {
               symbolCode = stripFunctionBody(symbolCode);
             }
           }
+
+          // Optimization: Strip comments
+          symbolCode = stripComments(symbolCode, lang);
 
           output += `${symbolCode}\n\n`;
         }

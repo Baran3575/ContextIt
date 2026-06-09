@@ -8,6 +8,7 @@ export interface SymbolInfo {
   start: number;
   end: number;
   code: string;
+  declCode?: string;
   dependencies: string[]; // local symbols referenced inside this symbol
 }
 
@@ -52,6 +53,93 @@ export function resolveImportPath(importingFilePath: string, source: string): st
   }
 
   return null;
+}
+
+/**
+ * Uses TypeScript transformation API to strip bodies from function, method, constructor,
+ * and accessor declarations, returning the declaration-only code.
+ */
+export function cleanTSNodeForDecl(node: ts.Node, sourceFile: ts.SourceFile): string {
+  const printer = ts.createPrinter({ removeComments: false });
+  
+  const transformer = (context: ts.TransformationContext) => {
+    return (rootNode: ts.Node) => {
+      function visit(n: ts.Node): ts.Node {
+        n = ts.visitEachChild(n, visit, context);
+        
+        if (ts.isMethodDeclaration(n)) {
+          return ts.factory.updateMethodDeclaration(
+            n,
+            n.modifiers,
+            n.asteriskToken,
+            n.name,
+            n.questionToken,
+            n.typeParameters,
+            n.parameters,
+            n.type,
+            undefined // body = undefined
+          );
+        }
+        
+        if (ts.isConstructorDeclaration(n)) {
+          return ts.factory.updateConstructorDeclaration(
+            n,
+            n.modifiers,
+            n.parameters,
+            undefined // body = undefined
+          );
+        }
+        
+        if (ts.isFunctionDeclaration(n)) {
+          return ts.factory.updateFunctionDeclaration(
+            n,
+            n.modifiers,
+            n.asteriskToken,
+            n.name,
+            n.typeParameters,
+            n.parameters,
+            n.type,
+            undefined // body = undefined
+          );
+        }
+        
+        if (ts.isGetAccessorDeclaration(n)) {
+          return ts.factory.updateGetAccessorDeclaration(
+            n,
+            n.modifiers,
+            n.name,
+            n.parameters,
+            n.type,
+            undefined // body = undefined
+          );
+        }
+
+        if (ts.isSetAccessorDeclaration(n)) {
+          return ts.factory.updateSetAccessorDeclaration(
+            n,
+            n.modifiers,
+            n.name,
+            n.parameters,
+            undefined // body = undefined
+          );
+        }
+        
+        return n;
+      }
+      return ts.visitNode(rootNode, visit);
+    };
+  };
+
+  const result = ts.transform(node, [transformer]);
+  const transformedNode = result.transformed[0];
+  const output = printer.printNode(ts.EmitHint.Unspecified, transformedNode, sourceFile);
+  result.dispose();
+  
+  if (ts.isFunctionDeclaration(node) && !output.trim().endsWith(';')) {
+    return output.trim() + ';';
+  }
+  
+  return output;
 }
 
 /**
@@ -110,12 +198,22 @@ export function parseTSFile(filePath: string): FileDependencies {
     const symbolCode = code.substring(start, end);
     const dependencies = getReferencedIdentifiers(node).filter(dep => dep !== name);
 
+    let declCode = symbolCode;
+    if (type === 'class' || type === 'function') {
+      try {
+        declCode = cleanTSNodeForDecl(node, sourceFile);
+      } catch (e) {
+        // Fallback in case of transformation edge cases
+      }
+    }
+
     symbols.push({
       name,
       type,
       start,
       end,
       code: symbolCode,
+      declCode,
       dependencies,
     });
   }
