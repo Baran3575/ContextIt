@@ -64,6 +64,7 @@ To prove that ContextIt compiler passes preserve task-solving capabilities, we e
 - **Declaration-Only Mode**: Removes function and method bodies from resolved dependencies, leaving only type definitions and signatures.
 - **Deterministic File Sorting**: Organizes output files deterministically to align with Prompt Caching requirements.
 - **MCP Server Support**: Implements a Model Context Protocol (MCP) server for integration with IDE agents.
+- **Custom MCP Server Framework**: Provides a lightweight, type-safe, middleware-supported, and schema-minimized framework to write custom MCP servers with minimal boilerplate.
 
 ### Getting Started
 
@@ -136,6 +137,53 @@ Add this configuration to your host configuration file (e.g., `claude_desktop_co
 - `get_pruned_context`: Returns pruned code blocks targeting a specific class/function and its dependencies (with built-in token savings metadata prepended for the AI).
 - `analyze_dependencies`: Returns the full JSON dependency tree of imports starting from an entry file.
 
+##### Building Custom MCP Servers with the Framework
+
+ContextIt exports a high-level `McpServer` class that abstracts tool definition, argument schema validation, types coercion, prompts/resources handling, and telemetry middleware:
+
+```typescript
+import { McpServer } from 'contextit';
+
+const server = new McpServer({
+  name: 'my-custom-mcp',
+  version: '1.0.0',
+  enableSchemaMinimization: true // Automatically token-compresses tool parameter descriptions
+});
+
+// Telemetry/logging middleware
+server.use(async (ctx, next) => {
+  console.error(`Starting ${ctx.type}: ${ctx.name}`);
+  const result = await next();
+  console.error(`Finished ${ctx.type}: ${ctx.name}`);
+  return result;
+});
+
+// Register a Tool
+server.tool(
+  'greet',
+  'Greets the user with a name',
+  {
+    name: { type: 'string', description: 'Name of the person', required: true }
+  },
+  async (args) => {
+    return `Hello, ${args.name}!`;
+  }
+);
+
+// Register a Prompt
+server.prompt(
+  'explain-code',
+  'A prompt template for explaining code',
+  [{ name: 'code', required: true }],
+  async (args) => {
+    return `Please explain the following code:\n\n${args.code}`;
+  }
+);
+
+// Start on Stdio transport
+server.start();
+```
+
 ---
 
 ### Slicing Optimization Tips
@@ -205,6 +253,7 @@ ContextIt derleyici geçişlerinin görev çözme yeteneğini koruduğunu kanıt
 - **Yalnızca Bildirim (Declaration-Only) Modu**: Bağımlılıkların gövdelerini kaldırarak yalnızca tip tanımlarını ve imzaları bırakır.
 - **Deterministik Dosya Sıralama**: Çıktı dosyalarını prompt önbellekleme (Prompt Caching) gereksinimlerine göre sıralar (en az değişenler başta, en çok değişen ana giriş dosyası en sonda).
 - **MCP Sunucu Desteği**: IDE yapay zekalarıyla entegrasyon için bir Model Context Protocol (MCP) sunucusu barındırır.
+- **Özel MCP Sunucu Geliştirme Çatısı (Framework)**: En az kod yazımı ile özel MCP sunucuları oluşturabilmeniz için hafif, tip güvenli, middleware destekli ve şema minimize edici bir MCP geliştirme çatısı içerir.
 
 ### Başlangıç
 
@@ -277,6 +326,43 @@ Aşağıdaki yapılandırmayı ana bilgisayar yapılandırma dosyanıza (örn: `
 - `get_pruned_context`: Belirli bir sınıf/fonksiyon ve bağımlılıklarını budanmış kod blokları olarak getirir (yapay zeka için token tasarrufu metadataları başa eklenir).
 - `analyze_dependencies`: Giriş dosyasından başlayarak tüm bağımlılık ağacını JSON formatında döndürür.
 
+##### Geliştirme Çatısı (Framework) ile Özel MCP Sunucuları Oluşturma
+
+ContextIt, araç tanımlamalarını, argüman şeması doğrulamalarını, tip zorlamalarını, prompt/kaynak yönetimini ve telemetri middleware'lerini basitleştiren bir `McpServer` sınıfı dışa aktarır:
+
+```typescript
+import { McpServer } from 'contextit';
+
+const server = new McpServer({
+  name: 'ozel-mcp-sunucu',
+  version: '1.0.0',
+  enableSchemaMinimization: true // Araç parametre açıklamalarını otomatik sıkıştırır
+});
+
+// Telemetri/Loglama Middleware'i
+server.use(async (ctx, next) => {
+  console.error(`${ctx.name} (${ctx.type}) başlatılıyor...`);
+  const result = await next();
+  console.error(`${ctx.name} (${ctx.type}) tamamlandı.`);
+  return result;
+});
+
+// Araç (Tool) Kaydet
+server.tool(
+  'selamla',
+  'Kullanıcıyı ismiyle selamlar',
+  {
+    isim: { type: 'string', description: 'Selamlanacak kişinin ismi', required: true }
+  },
+  async (args) => {
+    return `Merhaba, ${args.isim}!`;
+  }
+);
+
+// Sunucuyu Stdio üzerinden başlat
+server.start();
+```
+
 ---
 
 ### Dilimleme Optimizasyon İpuçları
@@ -284,6 +370,20 @@ Aşağıdaki yapılandırmayı ana bilgisayar yapılandırma dosyanıza (örn: `
 2. **Yalnızca Bildirim Modunu Kullanın (`--mode decl` )**: Büyük bağımlılıklar için `decl` modunu kullanarak fonksiyon gövdelerini kaldırıp sadece imzaları saklayın.
 3. **Önbellek Hizalama**: Çıktı dosyalarının değişme sıklığına göre deterministik olarak sıralanması sayesinde prompt önbellekleme sistemlerinden maksimum verim alırsınız.
 
-## Lisans
+---
+
+### CI & CD Workflows / CI & CD Süreçleri
+
+English:
+ContextIt is configured with automated GitHub Actions workflows:
+- **CI (Continuous Integration)** (`.github/workflows/ci.yml`): Triggers on all pushes and pull requests to `main`. Automatically installs Node.js & Python dependencies, compiles TypeScript files, and runs the Jest test suite.
+- **CD (Continuous Delivery)** (`.github/workflows/cd.yml`): Triggers on version tag releases (e.g., `v*`). Builds, tests, automatically publishes packages to npm (if `NPM_TOKEN` secret is configured), and builds/pushes a lightweight multi-stage Docker image of the MCP Server to the GitHub Container Registry (GHCR).
+
+Türkçe:
+ContextIt, otomatik GitHub Actions iş akışları ile yapılandırılmıştır:
+- **CI (Sürekli Entegrasyon)** (`.github/workflows/ci.yml`): `main` dalına yapılan tüm push ve pull request işlemlerinde tetiklenir. Node.js ve Python bağımlılıklarını otomatik olarak kurar, TypeScript dosyalarını derler ve Jest testlerini çalıştırır.
+- **CD (Sürekli Dağıtım)** (`.github/workflows/cd.yml`): Sürüm tag push işlemlerinde (`v*`) tetiklenir. Projeyi derler, testleri çalıştırır, npm paketini yayınlar (eğer `NPM_TOKEN` secret'ı tanımlanmışsa) ve MCP sunucusunun hafif çok aşamalı (multi-stage) Docker imajını derleyip GitHub Container Registry (GHCR) üzerine yükler.
+
+## License / Lisans
 
 MIT
