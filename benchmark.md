@@ -15,12 +15,12 @@ The following table shows the context size difference when targeting specific en
 
 | Repository | Entry Point & Target | Raw Codebase (Tokens) | ContextIt Pruned | Reduction | Cost Difference (Gemini 3.5 Flash) |
 |---|---|---|---|---|---|
-| Express Framework | `createApplication` | 30,550 (50 files) | 988 (4 files) | 30.9x | $0.04583 &rarr; $0.00148 |
-| NestJS Realworld App | `bootstrap` | 9,587 (35 files) | 4,918 (26 files) | 1.9x | $0.01438 &rarr; $0.00738 |
-| Next.js Realworld App | `Home` | 22,878 (62 files) | 7,726 (23 files) | 3.0x | $0.03432 &rarr; $0.01159 |
-| Fastify Framework | `fastify` | 120,770 (69 files) | 13,588 (28 files) | 8.9x | $0.18116 &rarr; $0.02038 |
-| Hono Framework | `Hono` | 335,930 (254 files) | 15,197 (14 files) | 22.1x | $0.50389 &rarr; $0.02280 |
-| Lodash Library | `debounce` | 481,559 (26 files) | 96 (1 files) | 5016.2x | $0.72234 &rarr; $0.00014 |
+| Express Framework | `createApplication` | 30,550 (50 files) | 1,008 (4 files) | 30.3x | $0.04583 &rarr; $0.00151 |
+| NestJS Realworld App | `bootstrap` | 9,587 (35 files) | 4,937 (26 files) | 1.9x | $0.01438 &rarr; $0.00741 |
+| Next.js Realworld App | `Home` | 22,878 (62 files) | 7,746 (23 files) | 3.0x | $0.03432 &rarr; $0.01162 |
+| Fastify Framework | `fastify` | 120,770 (69 files) | 13,608 (28 files) | 8.9x | $0.18116 &rarr; $0.02041 |
+| Hono Framework | `Hono` | 335,930 (254 files) | 15,217 (14 files) | 22.1x | $0.50389 &rarr; $0.02283 |
+| Lodash Library | `debounce` | 481,559 (26 files) | 115 (1 files) | 4187.5x | $0.72234 &rarr; $0.00017 |
 
 
 ### Observations
@@ -37,8 +37,8 @@ The following table shows the context size difference when targeting specific en
 | Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
 | Raw Project Context | 10605 | 2867 | $0.00430 | Baseline |
-| ContextIt (Full AST Pruning) | 2628 | 711 | $0.00107 | 4.0x reduction |
-| ContextIt (Declaration-Only) | 2417 | 654 | $0.00098 | 4.4x reduction |
+| ContextIt (Full AST Pruning) | 2701 | 730 | $0.00110 | 3.9x reduction |
+| ContextIt (Declaration-Only) | 2490 | 673 | $0.00101 | 4.3x reduction |
 
 ### B. Large Project / Long-Token Simulation
 *Simulation setup: 40 files, each containing 10 unused verbose functions and 1 active dependency.*
@@ -46,8 +46,8 @@ The following table shows the context size difference when targeting specific en
 | Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
 | Raw Project Context | 87048 | 23527 | $0.03529 | Baseline |
-| ContextIt (Full AST Pruning) | 11208 | 3030 | $0.00455 | 7.8x reduction |
-| ContextIt (Declaration-Only) | 9298 | 2513 | $0.00377 | 9.4x reduction |
+| ContextIt (Full AST Pruning) | 11281 | 3049 | $0.00457 | 7.7x reduction |
+| ContextIt (Declaration-Only) | 9371 | 2533 | $0.00380 | 9.3x reduction |
 
 ### C. Scale Project Simulation (300+ Files)
 *Simulation setup: 300 files in a recursive import chain, each containing 5 unused helpers and 1 active recursive dependency.*
@@ -55,8 +55,8 @@ The following table shows the context size difference when targeting specific en
 | Mode | Character Size | Estimated Tokens | Cost (Gemini 3.5 Flash) | Context Reduction |
 |---|---|---|---|---|
 | Raw Project Context | 163001 | 44055 | $0.06608 | Baseline |
-| ContextIt (Full AST Pruning) | 68782 | 18590 | $0.02789 | 2.4x reduction |
-| ContextIt (Declaration-Only) | 55819 | 15087 | $0.02263 | 2.9x reduction |
+| ContextIt (Full AST Pruning) | 68855 | 18610 | $0.02792 | 2.4x reduction |
+| ContextIt (Declaration-Only) | 55892 | 15106 | $0.02266 | 2.9x reduction |
 
 ---
 
@@ -69,7 +69,7 @@ Assuming a developer session of 50 queries in the Next.js Realworld App:
 
 | Model | Raw Cost (20% Cache Hit) | Pruned Cost (90% Cache Hit) | Savings | % Saved |
 |---|---|---|---|---|
-| Claude Fable 5 | $9.38 | $0.73 | **$8.65** | 92% |
+| Claude Fable 5 | $9.38 | $0.74 | **$8.64** | 92% |
 | Claude Opus 4.8 | $4.69 | $0.37 | **$4.32** | 92% |
 | Claude Sonnet 4.6 | $2.81 | $0.22 | **$2.59** | 92% |
 | Gemini 3.5 Flash | $1.41 | $0.11 | **$1.30** | 92% |

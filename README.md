@@ -12,14 +12,14 @@
 
 | Repository / Scenario | Raw Codebase Context | ContextIt Pruned | Slicing Ratio |
 |---|---|---|---|
-| Next.js Realworld App | 22,878 tokens | 7,726 tokens | 3.0x |
-| Express Framework | 30,550 tokens | 988 tokens | 30.9x |
-| Fastify Framework | 120,770 tokens | 13,588 tokens | 8.9x |
-| Hono Framework | 335,930 tokens | 15,197 tokens | 22.1x |
-| Lodash Library | 481,559 tokens | 96 tokens | 5016.2x |
-| Medium Project (Synthetic) | 2,867 tokens | 654 tokens | 4.4x |
-| Large Project (Synthetic) | 23,527 tokens | 2,513 tokens | 9.4x |
-| Scale Project (300+ Files) | 44,055 tokens | 15,087 tokens | 2.9x |
+| Next.js Realworld App | 22,878 tokens | 7,746 tokens | 3.0x |
+| Express Framework | 30,550 tokens | 1,008 tokens | 30.3x |
+| Fastify Framework | 120,770 tokens | 13,608 tokens | 8.9x |
+| Hono Framework | 335,930 tokens | 15,217 tokens | 22.1x |
+| Lodash Library | 481,559 tokens | 115 tokens | 4187.5x |
+| Medium Project (Synthetic) | 2,867 tokens | 673 tokens | 4.3x |
+| Large Project (Synthetic) | 23,527 tokens | 2,533 tokens | 9.3x |
+| Scale Project (300+ Files) | 44,055 tokens | 15,106 tokens | 2.9x |
 
 *Estimated tokens calculated at ~3.7 characters per token.*
 
@@ -33,7 +33,7 @@ Based on a developer session of 50 queries in a Next.js Realworld App codebase u
 
 | Model | Raw Cost (20% Cache Hit) | Pruned Cost (90% Cache Hit) | Savings | % Saved |
 |---|---|---|---|---|
-| Claude Fable 5 | $9.38 | $0.73 | **$8.65** | 92% |
+| Claude Fable 5 | $9.38 | $0.74 | **$8.64** | 92% |
 | Claude Opus 4.8 | $4.69 | $0.37 | **$4.32** | 92% |
 | Claude Sonnet 4.6 | $2.81 | $0.22 | **$2.59** | 92% |
 | Gemini 3.5 Flash | $1.41 | $0.11 | **$1.30** | 92% |
@@ -137,14 +137,14 @@ Add this configuration to your host configuration file (e.g., `claude_desktop_co
 
 | Proje / Senaryo | Ham Kod Tabanı Bağlamı | ContextIt ile Temizlenmiş | Sıkıştırma Oranı |
 |---|---|---|---|
-| Next.js Realworld App | 22,878 tokens | 7,726 tokens | 3.0x |
-| Express Framework | 30,550 tokens | 988 tokens | 30.9x |
-| Fastify Framework | 120,770 tokens | 13,588 tokens | 8.9x |
-| Hono Framework | 335,930 tokens | 15,197 tokens | 22.1x |
-| Lodash Library | 481,559 tokens | 96 tokens | 5016.2x |
-| Medium Project (Synthetic) | 2,867 tokens | 654 tokens | 4.4x |
-| Large Project (Synthetic) | 23,527 tokens | 2,513 tokens | 9.4x |
-| Scale Project (300+ Files) | 44,055 tokens | 15,087 tokens | 2.9x |
+| Next.js Realworld App | 22,878 tokens | 7,746 tokens | 3.0x |
+| Express Framework | 30,550 tokens | 1,008 tokens | 30.3x |
+| Fastify Framework | 120,770 tokens | 13,608 tokens | 8.9x |
+| Hono Framework | 335,930 tokens | 15,217 tokens | 22.1x |
+| Lodash Library | 481,559 tokens | 115 tokens | 4187.5x |
+| Medium Project (Synthetic) | 2,867 tokens | 673 tokens | 4.3x |
+| Large Project (Synthetic) | 23,527 tokens | 2,533 tokens | 9.3x |
+| Scale Project (300+ Files) | 44,055 tokens | 15,106 tokens | 2.9x |
 
 *Tahmini token sayıları ~3.7 karakter = 1 token olarak hesaplanmıştır.*
 
@@ -158,7 +158,7 @@ Bir Next.js Realworld App kod tabanında yapılan 50 sorguluk bir geliştirici o
 
 | Model | Raw Cost (20% Cache Hit) | Pruned Cost (90% Cache Hit) | Savings | % Saved |
 |---|---|---|---|---|
-| Claude Fable 5 | $9.38 | $0.73 | **$8.65** | 92% |
+| Claude Fable 5 | $9.38 | $0.74 | **$8.64** | 92% |
 | Claude Opus 4.8 | $4.69 | $0.37 | **$4.32** | 92% |
 | Claude Sonnet 4.6 | $2.81 | $0.22 | **$2.59** | 92% |
 | Gemini 3.5 Flash | $1.41 | $0.11 | **$1.30** | 92% |

@@ -118,6 +118,9 @@ export function main() {
   
   if (args.includes('benchmark') || args.includes('--benchmark')) {
     runAllBenchmarks();
+    console.log();
+    const { runPassesBenchmark } = require('../benchmark/passes');
+    runPassesBenchmark();
     return;
   }
 
