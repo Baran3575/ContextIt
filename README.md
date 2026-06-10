@@ -21,7 +21,21 @@
 | Large Project (Synthetic) | 23,527 tokens | 2,513 tokens | 9.4x |
 | Scale Project (300+ Files) | 44,055 tokens | 15,087 tokens | 2.9x |
 
-*Estimated tokens calculated at ~3.7 characters per token. Cost estimates are based on Gemini 3.5 Flash pricing ($1.50 per 1 million input tokens).*
+*Estimated tokens calculated at ~3.7 characters per token.*
+
+### Estimated Session Cost Comparison (50 Queries)
+
+Based on a developer session of 50 queries in a Next.js Realworld App codebase:
+- **Raw Context**: Assumes 20% cache hit rate due to random file ordering and code changes.
+- **ContextIt (Pruned & Cache-Aligned)**: Assumes 90% cache hit rate due to deterministic ordering and static-global alignment passes.
+
+| Model | Raw Cost (20% Cache Hit) | Pruned Cost (90% Cache Hit) | Savings | % Saved |
+|---|---|---|---|---|
+| Claude Fable 5 | $9.38 | $0.73 | **$8.65** | 92% |
+| Claude Opus 4.8 | $4.69 | $0.37 | **$4.32** | 92% |
+| Claude Sonnet 4.6 | $2.81 | $0.22 | **$2.59** | 92% |
+| Gemini 3.5 Flash | $1.41 | $0.11 | **$1.30** | 92% |
+
 
 Detailed benchmark parameters, cost calculations, and reproduction instructions are available in [benchmark.md](benchmark.md).
 
@@ -78,7 +92,7 @@ contextit --entry src/cli/cli.ts --symbol main --mode decl --output context.md
 *(Prints a comprehensive, real-time context reduction report including raw tokens, pruned tokens, and cost savings directly to the console).*
 
 #### 2. Benchmark Automation Mode
-ContextIt includes an automated, tam-nesnel (completely objective) benchmark runner that measures performance, compression ratios, and estimated Gemini 3.5 Flash input costs.
+ContextIt includes an automated, tam-nesnel (completely objective) benchmark runner that measures performance, compression ratios, and estimated input costs across various models.
 To run the full suite (synthetic projects up to 300+ files, plus cloning and slicing real-world projects like Express, NestJS, Next.js, Fastify, Hono, and Lodash):
 ```bash
 contextit benchmark
@@ -130,7 +144,21 @@ Add this configuration to your host configuration file (e.g., `claude_desktop_co
 | Large Project (Synthetic) | 23,527 tokens | 2,513 tokens | 9.4x |
 | Scale Project (300+ Files) | 44,055 tokens | 15,087 tokens | 2.9x |
 
-*Tahmini token sayıları ~3.7 karakter = 1 token olarak hesaplanmıştır. Maliyet tahminleri Gemini 3.5 Flash fiyatlandırmasına ($1.50 / 1 milyon girdi token'ı) dayanmaktadır.*
+*Tahmini token sayıları ~3.7 karakter = 1 token olarak hesaplanmıştır.*
+
+### Tahmini Oturum Maliyet Karşılaştırması (50 Sorgu)
+
+Bir Next.js Realworld App kod tabanında yapılan 50 sorguluk bir geliştirici oturumu baz alınmıştır:
+- **Ham Bağlam (Raw)**: Rastgele dosya sıralaması ve değişiklikler nedeniyle %20 önbellek eşleşmesi (cache hit) varsayılmıştır.
+- **ContextIt (Budanmış ve Hizalanmış)**: Deterministik topolojik sıralama ve statik-global hizalama geçişleri sayesinde %90 önbellek eşleşmesi varsayılmıştır.
+
+| Model | Raw Cost (20% Cache Hit) | Pruned Cost (90% Cache Hit) | Savings | % Saved |
+|---|---|---|---|---|
+| Claude Fable 5 | $9.38 | $0.73 | **$8.65** | 92% |
+| Claude Opus 4.8 | $4.69 | $0.37 | **$4.32** | 92% |
+| Claude Sonnet 4.6 | $2.81 | $0.22 | **$2.59** | 92% |
+| Gemini 3.5 Flash | $1.41 | $0.11 | **$1.30** | 92% |
+
 
 Detaylı benchmark parametreleri, maliyet hesaplamaları ve yeniden çalıştırma talimatları [benchmark.md](benchmark.md) dosyasında mevcuttur.
 
@@ -187,7 +215,7 @@ contextit --entry src/cli/cli.ts --symbol main --mode decl --output context.md
 *(Terminal konsoluna ham token, budanmış token ve maliyet tasarrufunu içeren gerçek zamanlı bir rapor yazdırır).*
 
 #### 2. Otomatik Benchmark Modu
-ContextIt, sıkıştırma oranlarını ve tahmini Gemini 3.5 Flash girdi maliyetlerini ölçen otomatik, tamamen nesnel bir benchmark çalıştırıcısına sahiptir.
+ContextIt, sıkıştırma oranlarını ve model bazlı girdi maliyetlerini ölçen otomatik, tamamen nesnel bir benchmark çalıştırıcısına sahiptir.
 Tüm testleri (300+ dosyaya kadar sentetik projeler ile Express, NestJS, Next.js, Fastify, Hono ve Lodash gibi popüler projelerin klonlanıp dilimlenmesi) çalıştırmak için:
 ```bash
 contextit benchmark

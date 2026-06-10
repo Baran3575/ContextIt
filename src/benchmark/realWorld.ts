@@ -16,6 +16,38 @@ function formatCost(tokens: number): string {
   return `$${(tokens * COST_PER_TOKEN).toFixed(5)}`;
 }
 
+interface ModelPricing {
+  name: string;
+  input: number;      // per 1M tokens
+  cacheHit: number;   // per 1M tokens
+}
+
+const MODEL_PRICING: ModelPricing[] = [
+  { name: 'Claude Fable 5', input: 10.00, cacheHit: 1.00 },
+  { name: 'Claude Opus 4.8', input: 5.00, cacheHit: 0.50 },
+  { name: 'Claude Sonnet 4.6', input: 3.00, cacheHit: 0.30 },
+  { name: 'Gemini 3.5 Flash', input: 1.50, cacheHit: 0.15 },
+];
+
+function generateCostComparisonTable(rawTokens: number, prunedTokens: number, numQueries: number = 50): string {
+  let table = '| Model | Raw Cost (20% Cache Hit) | Pruned Cost (90% Cache Hit) | Savings | % Saved |\n';
+  table += '|---|---|---|---|---|\n';
+  
+  for (const model of MODEL_PRICING) {
+    const rawCostPerQuery = ((0.8 * model.input + 0.2 * model.cacheHit) / 1_000_000) * rawTokens;
+    const rawTotal = rawCostPerQuery * numQueries;
+    
+    const prunedCostPerQuery = ((0.1 * model.input + 0.9 * model.cacheHit) / 1_000_000) * prunedTokens;
+    const prunedTotal = prunedCostPerQuery * numQueries;
+    
+    const savings = rawTotal - prunedTotal;
+    const pct = Math.round((savings / (rawTotal || 1)) * 100);
+    
+    table += `| ${model.name} | $${rawTotal.toFixed(2)} | $${prunedTotal.toFixed(2)} | **$${savings.toFixed(2)}** | ${pct}% |\n`;
+  }
+  return table;
+}
+
 function cleanDirectory(dir: string) {
   if (fs.existsSync(dir)) {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -378,7 +410,7 @@ export function runAllBenchmarks() {
 
 ## English
 
-ContextIt is a tool designed to extract target symbols and their resolved dependencies from source code files. Using Abstract Syntax Tree (AST) analysis, it prunes unused functions, classes, type declarations, and imports to generate a minimized representation of a codebase for use in LLM contexts.
+**ContextIt** is an **MCP-Aware Context Compiler** for Claude and OpenAI agents. It acts as an optimization compiler for LLM contexts—similar to how LLVM translates source code into optimized intermediate representations (IR). Instead of simply minifying source files, it compiles codebases, tool schemas, and task descriptions into a deterministic, cache-aligned, and token-minimized context package that maximizes prompt caching efficiency.
 
 ### Context Size Metrics (Gemini 3.5 Flash)
 
@@ -393,7 +425,15 @@ ContextIt is a tool designed to extract target symbols and their resolved depend
 | Large Project (Synthetic) | ${rawLargeTokens.toLocaleString()} tokens | ${prunedLargeDeclTokens.toLocaleString()} tokens | ${reductionLargeDecl} |
 | Scale Project (300+ Files) | ${rawScaleTokens.toLocaleString()} tokens | ${prunedScaleDeclTokens.toLocaleString()} tokens | ${reductionScaleDecl} |
 
-*Estimated tokens calculated at ~3.7 characters per token. Cost estimates are based on Gemini 3.5 Flash pricing ($1.50 per 1 million input tokens).*
+*Estimated tokens calculated at ~3.7 characters per token.*
+
+### Estimated Session Cost Comparison (50 Queries)
+
+Based on a developer session of 50 queries in a Next.js Realworld App codebase:
+- **Raw Context**: Assumes 20% cache hit rate due to random file ordering and code changes.
+- **ContextIt (Pruned & Cache-Aligned)**: Assumes 90% cache hit rate due to deterministic ordering and static-global alignment passes.
+
+${nextResult ? generateCostComparisonTable(nextResult.rawTokens, nextResult.prunedTokens, 50) : ''}
 
 Detailed benchmark parameters, cost calculations, and reproduction instructions are available in [benchmark.md](benchmark.md).
 
@@ -450,7 +490,7 @@ contextit --entry src/cli/cli.ts --symbol main --mode decl --output context.md
 *(Prints a comprehensive, real-time context reduction report including raw tokens, pruned tokens, and cost savings directly to the console).*
 
 #### 2. Benchmark Automation Mode
-ContextIt includes an automated, tam-nesnel (completely objective) benchmark runner that measures performance, compression ratios, and estimated Gemini 3.5 Flash input costs.
+ContextIt includes an automated, tam-nesnel (completely objective) benchmark runner that measures performance, compression ratios, and estimated input costs across various models.
 To run the full suite (synthetic projects up to 300+ files, plus cloning and slicing real-world projects like Express, NestJS, Next.js, Fastify, Hono, and Lodash):
 \`\`\`bash
 contextit benchmark
@@ -487,7 +527,7 @@ Add this configuration to your host configuration file (e.g., \`claude_desktop_c
 
 ## Türkçe
 
-ContextIt, kaynak kod dosyalarından hedef sembolleri ve bunların çözümlenmiş bağımlılıklarını ayıklamak için tasarlanmış bir araçtır. Soyut Sözdizimi Ağacı (AST) analizini kullanarak kullanılmayan fonksiyonları, sınıfları, tip tanımlamalarını ve import'ları temizler ve LLM context'leri için kod tabanının küçültülmüş bir temsilini üretir.
+**ContextIt**, Claude ve OpenAI ajanları için geliştirilmiş **MCP-Uyumlu bir Bağlam Derleyicisidir (MCP-Aware Context Compiler)**. Kaynak kodları optimize edilmiş bir ara temsile (IR) dönüştüren LLVM'e benzer şekilde, LLM bağlamları için bir optimizasyon derleyicisi görevi görür. Kod dosyalarını sadece küçültmek yerine; kod tabanını, araç şemalarını ve görev tanımlarını deterministik, önbellek-hizalı (cache-aligned) ve token-minimize edilmiş bir bağlam paketine dönüştürerek prompt önbellekleme (prompt caching) verimliliğini maksimuma çıkarır.
 
 ### Bağlam Boyutu Metrikleri (Gemini 3.5 Flash)
 
@@ -502,7 +542,15 @@ ContextIt, kaynak kod dosyalarından hedef sembolleri ve bunların çözümlenmi
 | Large Project (Synthetic) | ${rawLargeTokens.toLocaleString()} tokens | ${prunedLargeDeclTokens.toLocaleString()} tokens | ${reductionLargeDecl} |
 | Scale Project (300+ Files) | ${rawScaleTokens.toLocaleString()} tokens | ${prunedScaleDeclTokens.toLocaleString()} tokens | ${reductionScaleDecl} |
 
-*Tahmini token sayıları ~3.7 karakter = 1 token olarak hesaplanmıştır. Maliyet tahminleri Gemini 3.5 Flash fiyatlandırmasına ($1.50 / 1 milyon girdi token'ı) dayanmaktadır.*
+*Tahmini token sayıları ~3.7 karakter = 1 token olarak hesaplanmıştır.*
+
+### Tahmini Oturum Maliyet Karşılaştırması (50 Sorgu)
+
+Bir Next.js Realworld App kod tabanında yapılan 50 sorguluk bir geliştirici oturumu baz alınmıştır:
+- **Ham Bağlam (Raw)**: Rastgele dosya sıralaması ve değişiklikler nedeniyle %20 önbellek eşleşmesi (cache hit) varsayılmıştır.
+- **ContextIt (Budanmış ve Hizalanmış)**: Deterministik topolojik sıralama ve statik-global hizalama geçişleri sayesinde %90 önbellek eşleşmesi varsayılmıştır.
+
+${nextResult ? generateCostComparisonTable(nextResult.rawTokens, nextResult.prunedTokens, 50) : ''}
 
 Detaylı benchmark parametreleri, maliyet hesaplamaları ve yeniden çalıştırma talimatları [benchmark.md](benchmark.md) dosyasında mevcuttur.
 
@@ -559,7 +607,7 @@ contextit --entry src/cli/cli.ts --symbol main --mode decl --output context.md
 *(Terminal konsoluna ham token, budanmış token ve maliyet tasarrufunu içeren gerçek zamanlı bir rapor yazdırır).*
 
 #### 2. Otomatik Benchmark Modu
-ContextIt, sıkıştırma oranlarını ve tahmini Gemini 3.5 Flash girdi maliyetlerini ölçen otomatik, tamamen nesnel bir benchmark çalıştırıcısına sahiptir.
+ContextIt, sıkıştırma oranlarını ve model bazlı girdi maliyetlerini ölçen otomatik, tamamen nesnel bir benchmark çalıştırıcısına sahiptir.
 Tüm testleri (300+ dosyaya kadar sentetik projeler ile Express, NestJS, Next.js, Fastify, Hono ve Lodash gibi popüler projelerin klonlanıp dilimlenmesi) çalıştırmak için:
 \`\`\`bash
 contextit benchmark
@@ -608,7 +656,7 @@ This document contains detailed performance benchmarks and cost projections for 
 1. **Raw Project Context**: The benchmark loader reads all relevant source files in the project directory, serializes their contents together with file path comments, and measures the token count.
 2. **ContextIt Pruned**: ContextIt runs its dependency resolver starting from the designated entry point and target symbol, prunes all unused symbols/imports, formats the output into markdown, and measures the token count.
 3. **Token Estimation**: Estimated tokens are calculated at a rate of 3.7 characters per token.
-4. **Cost Model**: Cost calculations are based on Gemini 3.5 Flash input token pricing: $1.50 per 1 million input tokens.
+4. **Cost Model**: Cost calculations are based on multi-model pricing representing standard input costs and cache hit discounts.
 
 ---
 
@@ -654,15 +702,12 @@ ${realTable}
 
 ---
 
-## 3. Long-Term Cost Projection
-Assuming a development session where a coding agent is queried 50 times to implement a new feature in the Next.js Realworld App:
-- Using Raw Context:
-  - Total tokens sent: 50 * ${nextResult ? nextResult.rawTokens.toLocaleString() : '22,878'} = ${nextResult ? (nextResult.rawTokens * 50).toLocaleString() : '1,143,900'} tokens
-  - Total Cost: $${nextRawSessionCost}
-- Using ContextIt (Pruned):
-  - Total tokens sent: 50 * ${nextResult ? nextResult.prunedTokens.toLocaleString() : '345'} = ${nextResult ? (nextResult.prunedTokens * 50).toLocaleString() : '17,250'} tokens
-  - Total Cost: $${nextPrunedSessionCost}
-- Difference: $${nextSavings}
+## 3. Long-Term Cost & Caching Projection
+Assuming a developer session of 50 queries in the Next.js Realworld App:
+- **Raw Context**: Assumes 20% cache hit rate due to random file ordering.
+- **ContextIt (Pruned & Cache-Aligned)**: Assumes 90% cache hit rate due to deterministic cache alignment.
+
+${nextResult ? generateCostComparisonTable(nextResult.rawTokens, nextResult.prunedTokens, 50) : ''}
 
 ---
 

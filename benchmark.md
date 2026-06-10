@@ -6,7 +6,7 @@ This document contains detailed performance benchmarks and cost projections for 
 1. **Raw Project Context**: The benchmark loader reads all relevant source files in the project directory, serializes their contents together with file path comments, and measures the token count.
 2. **ContextIt Pruned**: ContextIt runs its dependency resolver starting from the designated entry point and target symbol, prunes all unused symbols/imports, formats the output into markdown, and measures the token count.
 3. **Token Estimation**: Estimated tokens are calculated at a rate of 3.7 characters per token.
-4. **Cost Model**: Cost calculations are based on Gemini 3.5 Flash input token pricing: $1.50 per 1 million input tokens.
+4. **Cost Model**: Cost calculations are based on multi-model pricing representing standard input costs and cache hit discounts.
 
 ---
 
@@ -60,15 +60,18 @@ The following table shows the context size difference when targeting specific en
 
 ---
 
-## 3. Long-Term Cost Projection
-Assuming a development session where a coding agent is queried 50 times to implement a new feature in the Next.js Realworld App:
-- Using Raw Context:
-  - Total tokens sent: 50 * 22,878 = 1,143,900 tokens
-  - Total Cost: $1.72
-- Using ContextIt (Pruned):
-  - Total tokens sent: 50 * 7,726 = 386,300 tokens
-  - Total Cost: $0.58
-- Difference: $1.14
+## 3. Long-Term Cost & Caching Projection
+Assuming a developer session of 50 queries in the Next.js Realworld App:
+- **Raw Context**: Assumes 20% cache hit rate due to random file ordering.
+- **ContextIt (Pruned & Cache-Aligned)**: Assumes 90% cache hit rate due to deterministic cache alignment.
+
+| Model | Raw Cost (20% Cache Hit) | Pruned Cost (90% Cache Hit) | Savings | % Saved |
+|---|---|---|---|---|
+| Claude Fable 5 | $9.38 | $0.73 | **$8.65** | 92% |
+| Claude Opus 4.8 | $4.69 | $0.37 | **$4.32** | 92% |
+| Claude Sonnet 4.6 | $2.81 | $0.22 | **$2.59** | 92% |
+| Gemini 3.5 Flash | $1.41 | $0.11 | **$1.30** | 92% |
+
 
 ---
 
