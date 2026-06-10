@@ -112,15 +112,51 @@ export function getPythonRelativeModule(fromFile: string, toFile: string): strin
 }
 
 /**
- * Strips single-line comments that are not JSDoc or configuration.
+ * Checks if a file is a configuration, lock, or project structure file.
+ */
+export function isConfigFile(filePath: string): boolean {
+  const base = path.basename(filePath).toLowerCase();
+  const ext = path.extname(filePath).toLowerCase();
+  
+  const exactConfigs = [
+    'package.json', 'tsconfig.json', 'cargo.toml', 'requirements.txt',
+    'settings.json', '.gitignore', 'makefile', 'cmakelists.txt',
+    'appsettings.json', 'appsettings.development.json', 'dockerfile',
+    'docker-compose.yml', 'docker-compose.yaml', 'package-lock.json',
+    'yarn.lock', 'pnpm-lock.yaml', '.env', '.env.example', '.env.local',
+    'gemfile', 'gemfile.lock', 'go.mod', 'go.sum', 'pipfile', 'pipfile.lock',
+    'poetry.lock', 'pyproject.toml'
+  ];
+  
+  if (exactConfigs.includes(base)) {
+    return true;
+  }
+  
+  const configExtensions = ['.toml', '.yaml', '.yml', '.ini', '.conf', '.cfg', '.config', '.props', '.csproj', '.sln'];
+  return configExtensions.includes(ext);
+}
+
+/**
+ * Checks if a symbol code block contains a preservation marker.
+ */
+export function shouldPreserveFullSymbol(code: string): boolean {
+  const keepKeywords = ['@keep', '@preserve', '@contextit-keep'];
+  return keepKeywords.some(kw => code.includes(kw));
+}
+
+/**
+ * Strips single-line comments that are not JSDoc or configuration, respecting keep keywords.
  */
 export function stripComments(code: string, lang?: string): string {
+  const keepKeywords = ['@keep', '@preserve', '@contextit-keep', 'TODO:', 'FIXME:'];
+  const shouldKeepLine = (line: string) => keepKeywords.some(kw => line.includes(kw));
+
   if (lang === 'python') {
     return code
       .split('\n')
       .filter(line => {
         const trimmed = line.trim();
-        if (trimmed.startsWith('#') && !trimmed.startsWith('##')) {
+        if (trimmed.startsWith('#') && !trimmed.startsWith('##') && !shouldKeepLine(trimmed)) {
           return false;
         }
         return true;
@@ -128,15 +164,19 @@ export function stripComments(code: string, lang?: string): string {
       .join('\n');
   }
 
-  // For JS, TS, and Rust
-  // Strip block comments (/* but not /**)
-  let cleaned = code.replace(/\/\*(?!\*)([^*]|\*(?!\/))*\*\//g, '');
+  // Strip block comments (/* but not /**) unless they contain keep keywords
+  let cleaned = code.replace(/\/\*(?!\*)([^*]|\*(?!\/))*\*\//g, (match) => {
+    if (keepKeywords.some(kw => match.includes(kw))) {
+      return match;
+    }
+    return '';
+  });
   
   return cleaned
     .split('\n')
     .filter(line => {
       const trimmed = line.trim();
-      if (trimmed.startsWith('//') && !trimmed.startsWith('///')) {
+      if (trimmed.startsWith('//') && !trimmed.startsWith('///') && !shouldKeepLine(trimmed)) {
         return false;
       }
       return true;
@@ -163,9 +203,31 @@ export class CodePruner {
 
       const relativePath = path.relative(process.cwd(), filePath);
       const ext = path.extname(filePath);
+      
       let lang = 'typescript';
       if (ext === '.py') lang = 'python';
       else if (ext === '.rs') lang = 'rust';
+      else if (['.c', '.cpp', '.cc', '.h', '.hpp', '.hh'].includes(ext)) lang = 'cpp';
+      else if (ext === '.cs') lang = 'csharp';
+      else if (['.ts', '.tsx', '.js', '.jsx'].includes(ext)) lang = 'typescript';
+      else if (ext === '.json') lang = 'json';
+      else if (ext === '.yml' || ext === '.yaml') lang = 'yaml';
+      else if (ext === '.toml') lang = 'toml';
+      else if (ext === '.md') lang = 'markdown';
+      else lang = 'text';
+
+      // Output full file content for configuration, lockfiles, or files without code structure
+      if (isConfigFile(filePath) || !fileDeps || !fileDeps.symbols || fileDeps.symbols.length === 0) {
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          fileBlock += `## File: \`${relativePath}\`\n`;
+          fileBlock += `\`\`\`${lang}\n`;
+          fileBlock += content.trim() + '\n';
+          fileBlock += '```\n\n';
+          fileBlocks[filePath] = fileBlock;
+          continue;
+        } catch (e) {}
+      }
 
       fileBlock += `## File: \`${relativePath}\`\n`;
       fileBlock += `\`\`\`${lang}\n`;
@@ -279,18 +341,21 @@ export class CodePruner {
       for (const symbol of fileDeps.symbols) {
         if (neededSymbols.has(symbol.name)) {
           let symbolCode = symbol.code;
+          const preserveFull = shouldPreserveFullSymbol(symbolCode);
 
-          if (options.mode === 'decl' && !isEntryFile && symbol.declCode) {
-            symbolCode = symbol.declCode;
-          } else if (options.mode === 'decl' && !isEntryFile && symbol.type === 'function') {
-            if (lang === 'python') {
-              symbolCode = stripPythonFunctionBody(symbolCode);
-            } else {
-              symbolCode = stripFunctionBody(symbolCode);
+          if (options.mode === 'decl' && !isEntryFile && !preserveFull) {
+            if (symbol.declCode) {
+              symbolCode = symbol.declCode;
+            } else if (symbol.type === 'function') {
+              if (lang === 'python') {
+                symbolCode = stripPythonFunctionBody(symbolCode);
+              } else {
+                symbolCode = stripFunctionBody(symbolCode);
+              }
             }
           }
 
-          // Optimization: Strip comments
+          // Optimization: Strip comments (except keep keywords)
           symbolCode = stripComments(symbolCode, lang);
 
           fileBlock += `${symbolCode}\n\n`;

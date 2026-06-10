@@ -108,8 +108,8 @@ export function runQualitySuiteBenchmark() {
   console.log(`| **TOTAL / AVERAGE** | **${totalTasks}** | **${avgFullPct}** | **${avgPrunedPct}** | **${avgDeclPct}** | **${avgFullLat}** | **${avgPrunedLat}** |`);
 
   console.log('\nTask Quality Insights:');
-  console.log('1. Bug Fix & Test Writing: ContextIt matches or exceeds full context performance because pruning reduces distractions and attention dilution.');
-  console.log('2. Feature Addition: ContextIt decl mode drops to 68.0% success since adding new modules requires implementation detail from other packages, whereas ContextIt full pruned mode maintains a high 77.0% success rate.');
+  console.log('1. Bug Fix & Test Writing: ContextIt achieves highly comparable performance to full context because pruning keeps the focus on relevant code blocks, though results can be subject to standard benchmark variance.');
+  console.log('2. Feature Addition: ContextIt decl mode drops to 68.0% success since adding new modules requires implementation detail from other packages, whereas ContextIt full pruned mode maintains a strong 77.0% success rate.');
   console.log('3. Token Savings & Latency: Overall success rate drops by only 1.8% (86.8% vs 85.0%), but reduces prompt latency by 80% (6.2s to 1.2s) and input cost by up to 92%.');
   console.log('================================================');
 }

@@ -2,6 +2,8 @@ import * as path from 'path';
 import { parseTSFile, FileDependencies, SymbolInfo, ImportInfo } from './tsParser';
 import { parsePythonFile } from './pyParser';
 import { parseRustFile } from './rsParser';
+import { parseCppFile } from './cppParser';
+import { parseCSharpFile } from './csParser';
 
 export interface PrunedContextResult {
   // Mapping of file path to the set of symbol names that are actually needed
@@ -20,6 +22,10 @@ export class DependencyResolver {
         this.parsedFiles[filePath] = parsePythonFile(filePath);
       } else if (ext === '.rs') {
         this.parsedFiles[filePath] = parseRustFile(filePath);
+      } else if (['.c', '.cpp', '.cc', '.h', '.hpp', '.hh'].includes(ext)) {
+        this.parsedFiles[filePath] = parseCppFile(filePath);
+      } else if (ext === '.cs') {
+        this.parsedFiles[filePath] = parseCSharpFile(filePath);
       } else {
         this.parsedFiles[filePath] = parseTSFile(filePath);
       }
@@ -166,6 +172,26 @@ export class DependencyResolver {
 
     if (bestMatch) {
       return { import: bestMatch.import, specifier: bestMatch.specifier };
+    }
+
+    // Fallback: Check star imports (localName === '*')
+    for (const imp of fileDeps.imports) {
+      for (const spec of imp.specifiers) {
+        if (spec.localName === '*' && imp.resolvedPath) {
+          try {
+            const importedDeps = this.getOrParseFile(imp.resolvedPath);
+            const hasSymbol = importedDeps.symbols.some(s => s.name === symbolName);
+            if (hasSymbol) {
+              return {
+                import: imp,
+                specifier: { localName: symbolName, exportName: symbolName }
+              };
+            }
+          } catch (e) {
+            // Ignore errors reading files during dependency tracing
+          }
+        }
+      }
     }
 
     return null;

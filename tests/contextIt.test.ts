@@ -642,5 +642,114 @@ describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
     expect(budgetedTokens).toBeLessThanOrEqual(180);
     expect(budgetedOutput).toContain('registerUser');
   });
+
+  // Test 30: C/C++ parser verification
+  test('30. parseCppFile - resolves symbols and includes for C/C++', () => {
+    const tempDir = path.join(__dirname, 'fixtures/cpp_test_temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+    try {
+      const headerFile = path.join(tempDir, 'utils.h');
+      const cppFile = path.join(tempDir, 'main.cpp');
+
+      fs.writeFileSync(headerFile, '#define MAX_VAL 100\nvoid helperFunc();\n', 'utf-8');
+      fs.writeFileSync(cppFile, '#include "utils.h"\nvoid mainFunc() {\n  helperFunc();\n}\n', 'utf-8');
+
+      const resolver = new DependencyResolver();
+      const res = resolver.resolve(cppFile, 'mainFunc');
+
+      expect(res.filesToSymbols[cppFile]).toBeDefined();
+      expect(res.filesToSymbols[cppFile].has('mainFunc')).toBe(true);
+      expect(res.filesToSymbols[headerFile]).toBeDefined();
+      expect(res.filesToSymbols[headerFile].has('helperFunc')).toBe(true);
+    } finally {
+      if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  // Test 31: C# parser verification
+  test('31. parseCSharpFile - resolves symbols and namespaces for C#', () => {
+    const tempDir = path.join(__dirname, 'fixtures/cs_test_temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+    try {
+      const helperFile = path.join(tempDir, 'Helper.cs');
+      const mainFile = path.join(tempDir, 'Program.cs');
+
+      fs.writeFileSync(helperFile, 'namespace MyNamespace {\n  public class Helper {\n    public void DoSomething() {}\n  }\n}\n', 'utf-8');
+      fs.writeFileSync(mainFile, 'using MyNamespace;\nclass Program {\n  static void Main() {\n    Helper h = new Helper();\n    h.DoSomething();\n  }\n}\n', 'utf-8');
+
+      const resolver = new DependencyResolver();
+      const res = resolver.resolve(mainFile, 'Program');
+
+      expect(res.filesToSymbols[mainFile]).toBeDefined();
+      expect(res.filesToSymbols[mainFile].has('Program')).toBe(true);
+      expect(res.filesToSymbols[helperFile]).toBeDefined();
+      expect(res.filesToSymbols[helperFile].has('Helper')).toBe(true);
+    } finally {
+      if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  // Test 32: Configuration files preservation
+  test('32. CodePruner - preserves configuration files in full', () => {
+    const tempDir = path.join(__dirname, 'fixtures/config_test_temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+    try {
+      const configFile = path.join(tempDir, 'package.json');
+      fs.writeFileSync(configFile, '{\n  "name": "test-config",\n  "version": "1.0.0"\n}\n', 'utf-8');
+
+      const resolver = new DependencyResolver();
+      const res = resolver.resolve(configFile);
+      const pruner = new CodePruner();
+      const result = pruner.prune(res, { mode: 'decl' }, configFile);
+
+      expect(result).toContain('test-config');
+      expect(result).toContain('package.json');
+    } finally {
+      if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  // Test 33: Comments keep/preserve tag check
+  test('33. CodePruner - preserves code blocks with @keep comments in declaration-only mode', () => {
+    const tempDir = path.join(__dirname, 'fixtures/keep_test_temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+    try {
+      const file = path.join(tempDir, 'main.ts');
+      fs.writeFileSync(file, 'export function coreFunc() {\n  // @keep\n  const x = "critical";\n  return x;\n}\nexport function normalFunc() {\n  return 1;\n}\n', 'utf-8');
+
+      const resolver = new DependencyResolver();
+      const res = resolver.resolve(file, 'coreFunc');
+      const pruner = new CodePruner();
+      const result = pruner.prune(res, { mode: 'decl' }, file);
+
+      expect(result).toContain('// @keep');
+      expect(result).toContain('critical');
+    } finally {
+      if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  // Test 34: Python & C# decorator scanning
+  test('34. parsePythonFile - captures decorators preceding definitions', () => {
+    const tempDir = path.join(__dirname, 'fixtures/decor_test_temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+    try {
+      const file = path.join(tempDir, 'main.py');
+      fs.writeFileSync(file, '@app.route("/api")\n@login_required\ndef api_handler():\n    return "ok"\n', 'utf-8');
+
+      const fileDeps = parsePythonFile(file);
+      const sym = fileDeps.symbols.find(s => s.name === 'api_handler');
+      expect(sym).toBeDefined();
+      expect(sym!.code).toContain('@app.route("/api")');
+      expect(sym!.code).toContain('@login_required');
+    } finally {
+      if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });
 
