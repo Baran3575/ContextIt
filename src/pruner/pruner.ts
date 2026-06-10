@@ -2,7 +2,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { PrunedContextResult } from '../parser/resolver';
-import { SymbolInfo, ImportInfo } from '../parser/tsParser';
 import { sortFilesForCaching } from './cacheSorter';
 
 
@@ -200,7 +199,7 @@ export class CodePruner {
       let fileBlock = '';
       const neededSymbols = result.filesToSymbols[filePath];
       const fileDeps = result.parsedFiles[filePath];
-      const isEntryFile = filePath === absoluteEntry;
+
 
       const relativePath = path.relative(process.cwd(), filePath);
       const ext = path.extname(filePath);

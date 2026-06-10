@@ -130,7 +130,6 @@ export function parseCppFile(filePath: string): FileDependencies {
     const typeKeyword = match[1];
     const typeName = match[2];
     
-    const returnType = match[3];
     const funcName = match[4];
     
     const name = isKeywordType ? typeName : funcName;

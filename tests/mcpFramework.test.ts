@@ -61,14 +61,14 @@ describe('McpServer Framework', () => {
 
     const steps: string[] = [];
 
-    server.use(async (ctx, next) => {
+    server.use(async (_ctx, next) => {
       steps.push('mw1-start');
       const res = await next();
       steps.push('mw1-end');
       return res;
     });
 
-    server.use(async (ctx, next) => {
+    server.use(async (_ctx, next) => {
       steps.push('mw2-start');
       const res = await next();
       steps.push('mw2-end');

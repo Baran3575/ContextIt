@@ -143,7 +143,6 @@ export function parsePythonFile(filePath: string): FileDependencies {
       if (baseResolved) {
         const parentDir = fs.statSync(baseResolved).isDirectory() ? baseResolved : path.dirname(baseResolved);
         
-        const submoduleSpecifiers: typeof parsedSpecifiers = [];
         const normalSpecifiers: typeof parsedSpecifiers = [];
 
         for (const spec of parsedSpecifiers) {

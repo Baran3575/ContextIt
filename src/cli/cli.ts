@@ -7,7 +7,7 @@ import { buildContextIR } from '../parser/ir';
 
 function printHelp() {
   console.log(`
-\x1b[36mContextIt: AI Context Compressor CLI (v2.2.0)\x1b[0m
+\x1b[36mContextIt: AI Context Compressor CLI (v2.2.1)\x1b[0m
 
 Usage:
   node dist/cli/cli.js compile --entry <file_path> [options]

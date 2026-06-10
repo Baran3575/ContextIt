@@ -152,7 +152,7 @@ function calculateSymbolResolutionAccuracy(resolution: any): number {
   return totalSymbols > 0 ? (correctSymbols / totalSymbols) * 100 : 100.0;
 }
 
-const OTHER_REPOS_LIST: any[] = [];
+
 
 
 export function runAllBenchmarks() {
@@ -207,20 +207,9 @@ export function runAllBenchmarks() {
   });
   rawMedContext += `// File: main.ts\n` + fs.readFileSync(entryMed, 'utf-8');
 
-  const rawMedSize = rawMedContext.length;
-  const rawMedTokens = estimateTokens(rawMedContext);
-  const rawMedCost = formatCost(rawMedTokens);
-
   const resolutionMed = resolver.resolve(entryMed, 'calculateTotal');
-  const prunedMedFull = pruner.prune(resolutionMed, { mode: 'full' }, entryMed);
-  const prunedMedFullTokens = estimateTokens(prunedMedFull);
-  const prunedMedFullCost = formatCost(prunedMedFullTokens);
-  const reductionMedFull = (rawMedTokens / prunedMedFullTokens).toFixed(1) + 'x';
-
-  const prunedMedDecl = pruner.prune(resolutionMed, { mode: 'decl' }, entryMed);
-  const prunedMedDeclTokens = estimateTokens(prunedMedDecl);
-  const prunedMedDeclCost = formatCost(prunedMedDeclTokens);
-  const reductionMedDecl = (rawMedTokens / prunedMedDeclTokens).toFixed(1) + 'x';
+  pruner.prune(resolutionMed, { mode: 'full' }, entryMed);
+  pruner.prune(resolutionMed, { mode: 'decl' }, entryMed);
 
   // =========================================================
   // 2. SYNTHETIC BENCHMARK: LARGE PROJECT (LONG-TOKEN)
@@ -264,20 +253,9 @@ export function runAllBenchmarks() {
   });
   rawLargeContext += `// File: app.ts\n` + fs.readFileSync(entryLarge, 'utf-8');
 
-  const rawLargeSize = rawLargeContext.length;
-  const rawLargeTokens = estimateTokens(rawLargeContext);
-  const rawLargeCost = formatCost(rawLargeTokens);
-
   const resolutionLarge = resolver.resolve(entryLarge, 'runLargeWorkflow');
-  const prunedLargeFull = pruner.prune(resolutionLarge, { mode: 'full' }, entryLarge);
-  const prunedLargeFullTokens = estimateTokens(prunedLargeFull);
-  const prunedLargeFullCost = formatCost(prunedLargeFullTokens);
-  const reductionLargeFull = (rawLargeTokens / prunedLargeFullTokens).toFixed(1) + 'x';
-
-  const prunedLargeDecl = pruner.prune(resolutionLarge, { mode: 'decl' }, entryLarge);
-  const prunedLargeDeclTokens = estimateTokens(prunedLargeDecl);
-  const prunedLargeDeclCost = formatCost(prunedLargeDeclTokens);
-  const reductionLargeDecl = (rawLargeTokens / prunedLargeDeclTokens).toFixed(1) + 'x';
+  pruner.prune(resolutionLarge, { mode: 'full' }, entryLarge);
+  pruner.prune(resolutionLarge, { mode: 'decl' }, entryLarge);
 
   // =========================================================
   // 2B. SYNTHETIC BENCHMARK: SCALE PROJECT (300+ FILES)
@@ -323,21 +301,10 @@ export function runAllBenchmarks() {
   });
   rawScaleContext += `// File: main.ts\n` + fs.readFileSync(entryScale, 'utf-8');
 
-  const rawScaleSize = rawScaleContext.length;
-  const rawScaleTokens = estimateTokens(rawScaleContext);
-  const rawScaleCost = formatCost(rawScaleTokens);
-
   // Resolve and Prune Scale Context
   const resolutionScale = resolver.resolve(entryScale, 'calculateTotal');
-  const prunedScaleFull = pruner.prune(resolutionScale, { mode: 'full' }, entryScale);
-  const prunedScaleFullTokens = estimateTokens(prunedScaleFull);
-  const prunedScaleFullCost = formatCost(prunedScaleFullTokens);
-  const reductionScaleFull = (rawScaleTokens / prunedScaleFullTokens).toFixed(1) + 'x';
-
-  const prunedScaleDecl = pruner.prune(resolutionScale, { mode: 'decl' }, entryScale);
-  const prunedScaleDeclTokens = estimateTokens(prunedScaleDecl);
-  const prunedScaleDeclCost = formatCost(prunedScaleDeclTokens);
-  const reductionScaleDecl = (rawScaleTokens / prunedScaleDeclTokens).toFixed(1) + 'x';
+  pruner.prune(resolutionScale, { mode: 'full' }, entryScale);
+  pruner.prune(resolutionScale, { mode: 'decl' }, entryScale);
 
   // =========================================================
   // 3. REAL-WORLD BENCHMARKS (9 LIVE REPOSITORIES IN 5 LANGUAGES)

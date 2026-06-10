@@ -7,7 +7,7 @@ import { parsePythonFile } from '../src/parser/pyParser';
 import { parseRustFile } from '../src/parser/rsParser';
 import { buildContextIR } from '../src/parser/ir';
 import { sortFilesForCaching } from '../src/pruner/cacheSorter';
-import { minimizeTool, minimizeSchema } from '../src/mcp/schemaMinimizer';
+import { minimizeTool } from '../src/mcp/schemaMinimizer';
 import { stripClassMethods } from '../src/parser/csParser';
 import { parseCppFile } from '../src/parser/cppParser';
 

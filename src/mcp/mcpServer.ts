@@ -3,11 +3,12 @@ import * as path from 'path';
 import { DependencyResolver } from '../parser/resolver';
 import { CodePruner } from '../pruner/pruner';
 import { McpServer } from './framework';
+import { sortFilesForCaching } from '../pruner/cacheSorter';
 
 // Initialize the MCP server using our custom framework
 const server = new McpServer({
   name: 'context-it',
-  version: '1.0.0',
+  version: '2.2.1',
   enableSchemaMinimization: true,
 });
 
@@ -191,7 +192,6 @@ server.tool(
     };
     const root = findRoot(absolutePath);
 
-    const { sortFilesForCaching } = require('../pruner/cacheSorter');
     const sorted = sortFilesForCaching(resolution, absolutePath, root);
 
     const levelsBreakdown: Record<number, string[]> = { 1: [], 2: [], 3: [], 4: [] };

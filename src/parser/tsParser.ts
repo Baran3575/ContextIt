@@ -352,7 +352,6 @@ export function parseTSFile(filePath: string): FileDependencies {
     } else if (ts.isExportDeclaration(statement) && statement.exportClause && ts.isNamedExports(statement.exportClause)) {
       statement.exportClause.elements.forEach(el => {
         if (el.name.text === 'default') {
-          const localName = el.propertyName ? el.propertyName.text : el.name.text;
           addSymbol('default', el);
         }
       });

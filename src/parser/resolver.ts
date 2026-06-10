@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { parseTSFile, FileDependencies, SymbolInfo, ImportInfo } from './tsParser';
+import { parseTSFile, FileDependencies, ImportInfo } from './tsParser';
 import { parsePythonFile } from './pyParser';
 import { parseRustFile } from './rsParser';
 import { parseCppFile } from './cppParser';
@@ -43,7 +43,7 @@ export class DependencyResolver {
     // Initialize entry file mapping
     filesToSymbols[absoluteEntry] = new Set<string>();
 
-    const startFileDeps = this.getOrParseFile(absoluteEntry);
+
 
     if (!targetSymbol) {
       // If no target symbol, recursively include ALL files and ALL symbols in the import tree.

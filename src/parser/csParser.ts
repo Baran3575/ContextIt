@@ -283,9 +283,6 @@ export function parseCSharpFile(filePath: string): FileDependencies {
     const isKeywordType = match[1] !== undefined;
     const typeKeyword = match[1];
     const typeName = match[2];
-
-    const modifier = match[3];
-    const returnType = match[4];
     const methodName = match[5];
 
     const name = isKeywordType ? typeName : methodName;

@@ -1,5 +1,3 @@
-import * as fs from 'fs';
-import * as path from 'path';
 
 /**
  * Deterministically compresses tool parameter descriptions by removing parentheticals,
