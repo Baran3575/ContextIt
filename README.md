@@ -10,6 +10,11 @@
 
 ---
 
+> [!TIP]
+> **Are you an AI Coding Agent?** Read [AI_INSTRUCTIONS.md](AI_INSTRUCTIONS.md) for a simplified, quick start guide on how to run ContextIt to compress codebases, use the CLI, and call MCP tools.
+
+---
+
 ### PART A: Measured Benchmark Metrics
 
 These metrics represent actual empirical measurements obtained by executing the ContextIt dependency resolver and AST pruner over synthetic and real-world codebases.
