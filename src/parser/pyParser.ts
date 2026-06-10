@@ -285,7 +285,36 @@ export function parsePythonFile(filePath: string): FileDependencies {
           }
           const sigLines = blockLines.slice(0, sigEndLine + 1);
           const indentSpace = line.match(/^([ \t]*)/)?.[1] || '';
-          declCode = sigLines.join('\n') + `\n${indentSpace}    pass`;
+          
+          let docstringLines: string[] = [];
+          let docstringQuote = '';
+          let nextLineIndex = sigEndLine + 1;
+          while (nextLineIndex < blockLines.length && blockLines[nextLineIndex].trim() === '') {
+            nextLineIndex++;
+          }
+          if (nextLineIndex < blockLines.length) {
+            const firstBodyLine = blockLines[nextLineIndex].trim();
+            if (firstBodyLine.startsWith('"""') || firstBodyLine.startsWith("'''")) {
+              docstringQuote = firstBodyLine.startsWith('"""') ? '"""' : "'''";
+              const restOfLine = firstBodyLine.substring(3);
+              if (restOfLine.includes(docstringQuote)) {
+                docstringLines.push(blockLines[nextLineIndex]);
+              } else {
+                docstringLines.push(blockLines[nextLineIndex]);
+                for (let n = nextLineIndex + 1; n < blockLines.length; n++) {
+                  docstringLines.push(blockLines[n]);
+                  if (blockLines[n].includes(docstringQuote)) {
+                    break;
+                  }
+                }
+              }
+            }
+          }
+          let docstringPart = '';
+          if (docstringLines.length > 0) {
+            docstringPart = '\n' + docstringLines.join('\n');
+          }
+          declCode = sigLines.join('\n') + docstringPart + `\n${indentSpace}    pass`;
         } else if (type === 'class') {
           const classLines = symbolCode.split('\n');
           const outputLines: string[] = [];
@@ -335,6 +364,40 @@ export function parsePythonFile(filePath: string): FileDependencies {
               
               const defIndent = sigLines[0].match(/^([ \t]*)/)?.[0].length || 0;
               const indentStr = sigLines[0].match(/^([ \t]*)/)?.[0] || '';
+              
+              // Docstring check for class method
+              let docstringLines: string[] = [];
+              let docstringQuote = '';
+              let nextLineIndex = m + 1;
+              
+              while (nextLineIndex < classLines.length && classLines[nextLineIndex].trim() === '') {
+                nextLineIndex++;
+              }
+              
+              if (nextLineIndex < classLines.length) {
+                const firstBodyLine = classLines[nextLineIndex].trim();
+                if (firstBodyLine.startsWith('"""') || firstBodyLine.startsWith("'''")) {
+                  docstringQuote = firstBodyLine.startsWith('"""') ? '"""' : "'''";
+                  const restOfLine = firstBodyLine.substring(3);
+                  if (restOfLine.includes(docstringQuote)) {
+                    docstringLines.push(classLines[nextLineIndex]);
+                  } else {
+                    docstringLines.push(classLines[nextLineIndex]);
+                    for (let n = nextLineIndex + 1; n < classLines.length; n++) {
+                      docstringLines.push(classLines[n]);
+                      if (classLines[n].includes(docstringQuote)) {
+                        nextLineIndex = n;
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+              
+              if (docstringLines.length > 0) {
+                outputLines.push(...docstringLines);
+                m = nextLineIndex;
+              }
               
               outputLines.push(`${indentStr}    pass`);
               skipIndentLevel = defIndent;

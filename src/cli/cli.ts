@@ -7,7 +7,7 @@ import { buildContextIR } from '../parser/ir';
 
 function printHelp() {
   console.log(`
-ContextIt: AI Context Compressor CLI
+\x1b[36mContextIt: AI Context Compressor CLI (v2.2.0)\x1b[0m
 
 Usage:
   node dist/cli/cli.js compile --entry <file_path> [options]
@@ -15,14 +15,15 @@ Usage:
   node dist/cli/cli.js benchmark
 
 Options:
-  --entry <path>    Path to the entry file (Required)
-  --symbol <name>   Focus only on a specific class or function dependency tree
-  --mode <type>     Pruning mode: 'full' or 'decl' (default: 'full')
-  --output <path>   Write output to a file instead of stdout
-  --no-metrics      Omit the prepended markdown metrics callout block from the pruned context
-  --ir              Output Context IR in JSON format instead of markdown
-  --task <desc>     Task description / instruction for Context IR
-  --help            Show this help menu
+  -e, --entry <path>    Path to the entry file (Required)
+  -s, --symbol <name>   Focus only on a specific class or function dependency tree
+  -m, --mode <type>     Pruning mode: 'full' or 'decl' (default: 'full')
+  -o, --output <path>   Write output to a file instead of stdout
+  -n, --no-metrics      Omit the prepended markdown metrics callout block from the pruned context
+  -i, --ir              Output Context IR in JSON format instead of markdown
+  -t, --task <desc>     Task description / instruction for Context IR
+  --stats               Print a file-by-file token reduction summary table
+  -h, --help            Show this help menu
 `);
 }
 
@@ -141,45 +142,48 @@ export function main() {
   let output: string | undefined;
   let noMetrics = false;
   let irMode = false;
+  let statsMode = false;
   let taskInstruction = 'Analyze codebase and understand dependencies';
 
   for (let i = 0; i < cleanArgs.length; i++) {
-    if (cleanArgs[i] === '--entry') {
+    if (cleanArgs[i] === '--entry' || cleanArgs[i] === '-e') {
       entry = cleanArgs[i + 1];
       i++;
-    } else if (cleanArgs[i] === '--symbol') {
+    } else if (cleanArgs[i] === '--symbol' || cleanArgs[i] === '-s') {
       symbol = cleanArgs[i + 1];
       i++;
-    } else if (cleanArgs[i] === '--mode') {
+    } else if (cleanArgs[i] === '--mode' || cleanArgs[i] === '-m') {
       const parsedMode = cleanArgs[i + 1];
       if (parsedMode === 'full' || parsedMode === 'decl') {
         mode = parsedMode;
       } else {
-        console.error(`Error: Invalid mode '${parsedMode}'. Must be 'full' or 'decl'.`);
+        console.error(`\x1b[31mError:\x1b[0m Invalid mode '${parsedMode}'. Must be 'full' or 'decl'.`);
         process.exit(1);
       }
       i++;
-    } else if (cleanArgs[i] === '--output') {
+    } else if (cleanArgs[i] === '--output' || cleanArgs[i] === '-o') {
       output = cleanArgs[i + 1];
       i++;
-    } else if (cleanArgs[i] === '--no-metrics') {
+    } else if (cleanArgs[i] === '--no-metrics' || cleanArgs[i] === '-n') {
       noMetrics = true;
-    } else if (cleanArgs[i] === '--ir') {
+    } else if (cleanArgs[i] === '--ir' || cleanArgs[i] === '-i') {
       irMode = true;
-    } else if (cleanArgs[i] === '--task') {
+    } else if (cleanArgs[i] === '--stats') {
+      statsMode = true;
+    } else if (cleanArgs[i] === '--task' || cleanArgs[i] === '-t') {
       taskInstruction = cleanArgs[i + 1];
       i++;
     }
   }
 
   if (!entry) {
-    console.error('Error: --entry option is required.');
+    console.error('\x1b[31mError:\x1b[0m --entry (-e) option is required.');
     printHelp();
     process.exit(1);
   }
 
   if (!fs.existsSync(entry)) {
-    console.error(`Error: Entry file not found: ${entry}`);
+    console.error(`\x1b[31mError:\x1b[0m Entry file not found: ${entry}`);
     process.exit(1);
   }
 
@@ -214,23 +218,23 @@ export function main() {
         : '0.0';
 
       const telemetryOutput = `
-Input
+\x1b[36mInput\x1b[0m
 ------
 Files: ${inputStats.files}
 Symbols: ${inputStats.symbols}
 Tokens: ${formatTokens(inputStats.tokens)}
 
-Output
+\x1b[36mOutput\x1b[0m
 ------
 Files: ${outputStats.files}
 Symbols: ${outputStats.symbols}
-Tokens: ${formatTokens(outputStats.tokens)}
+Tokens: \x1b[32m${formatTokens(outputStats.tokens)}\x1b[0m
 
-Reduction: ${reduction}%
+Reduction: \x1b[32m${reduction}%\x1b[0m
 `.trim();
 
       if (output) {
-        console.log(`Context compiled successfully and written to ${output}`);
+        console.log(`\x1b[32mContext compiled successfully and written to ${output}\x1b[0m`);
         console.log('\n' + telemetryOutput);
       } else {
         console.error('\n' + telemetryOutput);
@@ -259,20 +263,51 @@ Reduction: ${reduction}%
         : 0;
 
       const metricsMsg = `
---- ContextIt Slicing Metrics ---
+\x1b[33m--- ContextIt Slicing Metrics ---\x1b[0m
 Raw Context: ~${rawTokens.toLocaleString()} tokens
-Pruned Context: ~${prunedTokens.toLocaleString()} tokens (${reductionRatio.toFixed(1)}x reduction)
-Estimated Cost Savings: ${percentSavings}% ($${rawCost} -> $${prunedCost})
+Pruned Context: \x1b[32m~${prunedTokens.toLocaleString()} tokens\x1b[0m (${reductionRatio.toFixed(1)}x reduction)
+Estimated Cost Savings: \x1b[32m${percentSavings}%\x1b[0m ($${rawCost} -> $${prunedCost})
 `.trim();
 
       if (output) {
-        console.log(`Context compressed successfully and written to ${output}`);
+        console.log(`\x1b[32mContext compressed successfully and written to ${output}\x1b[0m`);
         if (!noMetrics) {
           console.log(metricsMsg);
         }
       } else {
         if (!noMetrics) {
           console.error('\n' + metricsMsg);
+        }
+      }
+
+      // Print Summary Table if statsMode is set
+      if (statsMode) {
+        console.error('\n\x1b[36m=== File-by-File Slicing Summary ===\x1b[0m');
+        const header = '| File Path | Raw (Tokens) | Pruned (Tokens) | Reduction |';
+        const divider = '|-----------|--------------|-----------------|-----------|';
+        console.error(header);
+        console.error(divider);
+        
+        for (const filePath of Object.keys(resolution.parsedFiles)) {
+          const relativePath = path.relative(process.cwd(), filePath);
+          let rawSize = 0;
+          try {
+            rawSize = fs.readFileSync(filePath, 'utf-8').length;
+          } catch(e) {}
+          
+          let prunedSize = 0;
+          const escapedPath = relativePath.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const fileBlockRegex = new RegExp(`## File: \`\\x1b*\\x07*${escapedPath}\`\\r?\\n\`\`\`[a-z]*\\r?\\n([\\s\\S]*?)\`\`\`\\r?\\n\\r?\\n`, 'i');
+          const match = resultContext.match(fileBlockRegex);
+          if (match) {
+            prunedSize = match[1].length;
+          }
+          
+          const rawTok = Math.ceil(rawSize / 3.7);
+          const prunedTok = Math.ceil(prunedSize / 3.7);
+          const ratio = prunedTok > 0 ? (rawTok / prunedTok).toFixed(1) + 'x' : '1.0x';
+          const coloredRatio = prunedTok < rawTok ? `\x1b[32m${ratio}\x1b[0m` : `\x1b[33m${ratio}\x1b[0m`;
+          console.error(`| ${relativePath} | ${rawTok.toLocaleString()} | ${prunedTok.toLocaleString()} | ${coloredRatio} |`);
         }
       }
     }

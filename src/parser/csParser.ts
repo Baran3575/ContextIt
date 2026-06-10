@@ -149,6 +149,9 @@ export function stripClassMethods(code: string): string {
         i++;
       } else if (char === stringChar) {
         inString = false;
+        if (nestingLevel < 2) output += char;
+      } else {
+        if (nestingLevel < 2) output += char;
       }
       continue;
     }
@@ -165,7 +168,28 @@ export function stripClassMethods(code: string): string {
       if (nestingLevel === 1) {
         output += char;
       } else if (nestingLevel === 2) {
-        output += ' {}';
+        let braceDepth = 1;
+        let insideContent = '';
+        let closingIndex = -1;
+        for (let j = i + 1; j < code.length; j++) {
+          if (code[j] === '{') braceDepth++;
+          else if (code[j] === '}') braceDepth--;
+          
+          if (braceDepth === 0) {
+            insideContent = code.substring(i + 1, j);
+            closingIndex = j;
+            break;
+          }
+        }
+        
+        const isAutoProperty = /^\s*(get|set|private|protected|internal|init|;|\s)+$/i.test(insideContent);
+        if (isAutoProperty && closingIndex !== -1) {
+          output += '{' + insideContent + '}';
+          i = closingIndex;
+          nestingLevel--;
+        } else {
+          output += ' {}';
+        }
       }
       continue;
     }

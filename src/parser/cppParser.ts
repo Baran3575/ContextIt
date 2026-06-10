@@ -86,7 +86,17 @@ export function parseCppFile(filePath: string): FileDependencies {
     let endIndex = startIndex;
     for (let i = startIndex; i < code.length; i++) {
       if (code[i] === '\n') {
-        if (i > 0 && code[i - 1] === '\\') {
+        let hasBackslash = false;
+        for (let j = i - 1; j >= startIndex; j--) {
+          if (code[j] === ' ' || code[j] === '\t' || code[j] === '\r') {
+            continue;
+          }
+          if (code[j] === '\\') {
+            hasBackslash = true;
+          }
+          break;
+        }
+        if (hasBackslash) {
           continue; // Escaped newline, macro continues
         }
         endIndex = i;

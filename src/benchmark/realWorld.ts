@@ -880,7 +880,7 @@ The script will clone the test repositories into a temporary directory, run the 
   console.log('benchmark.md written successfully from scratch!');
 
   // Cleanup
-  cleanDirectory(tempReposDir);
+  // cleanDirectory(tempReposDir);
 }
 
 if (require.main === module) {

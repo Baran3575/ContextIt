@@ -1,16 +1,17 @@
 {
   "name": "contextit",
-  "version": "1.0.0",
+  "version": "2.2.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
-    "test": "jest",
+    "build": "node node_modules/typescript/bin/tsc",
+    "test": "node node_modules/jest/bin/jest.js",
     "mcp": "node dist/mcp/mcpServer.js",
     "cli": "node dist/cli/cli.js",
     "validate": "node dist/benchmark/validate.js",
     "benchmark:real": "node dist/benchmark/realWorld.js",
-    "benchmark:quality": "node dist/benchmark/quality.js"
+    "benchmark:quality": "node dist/benchmark/quality.js",
+    "benchmark:subagent": "node dist/benchmark/subagentEval.js"
   },
   "repository": {
     "type": "git",
