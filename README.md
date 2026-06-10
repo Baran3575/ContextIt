@@ -6,7 +6,7 @@
 
 ## English
 
-ContextIt is a tool designed to extract target symbols and their resolved dependencies from source code files. Using Abstract Syntax Tree (AST) analysis, it prunes unused functions, classes, type declarations, and imports to generate a minimized representation of a codebase for use in LLM contexts.
+**ContextIt** is an **MCP-Aware Context Compiler** for Claude and OpenAI agents. It acts as an optimization compiler for LLM contexts—similar to how LLVM translates source code into optimized intermediate representations (IR). Instead of simply minifying source files, it compiles codebases, tool schemas, and task descriptions into a deterministic, cache-aligned, and token-minimized context package that maximizes prompt caching efficiency.
 
 ### Context Size Metrics (Gemini 3.5 Flash)
 
@@ -115,7 +115,7 @@ Add this configuration to your host configuration file (e.g., `claude_desktop_co
 
 ## Türkçe
 
-ContextIt, kaynak kod dosyalarından hedef sembolleri ve bunların çözümlenmiş bağımlılıklarını ayıklamak için tasarlanmış bir araçtır. Soyut Sözdizimi Ağacı (AST) analizini kullanarak kullanılmayan fonksiyonları, sınıfları, tip tanımlamalarını ve import'ları temizler ve LLM context'leri için kod tabanının küçültülmüş bir temsilini üretir.
+**ContextIt**, Claude ve OpenAI ajanları için geliştirilmiş **MCP-Uyumlu bir Bağlam Derleyicisidir (MCP-Aware Context Compiler)**. Kaynak kodları optimize edilmiş bir ara temsile (IR) dönüştüren LLVM'e benzer şekilde, LLM bağlamları için bir optimizasyon derleyicisi görevi görür. Kod dosyalarını sadece küçültmek yerine; kod tabanını, araç şemalarını ve görev tanımlarını deterministik, önbellek-hizalı (cache-aligned) ve token-minimize edilmiş bir bağlam paketine dönüştürerek prompt önbellekleme (prompt caching) verimliliğini maksimuma çıkarır.
 
 ### Bağlam Boyutu Metrikleri (Gemini 3.5 Flash)
 
