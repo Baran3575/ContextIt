@@ -70,14 +70,60 @@ export function parsePythonFile(filePath: string): FileDependencies {
       throw new Error(result.error);
     }
 
-    const imports: ImportInfo[] = (result.imports || []).map((imp: any) => {
-      const resolvedPath = resolvePyImportPath(absolutePath, imp.source);
-      return {
-        source: imp.source,
-        resolvedPath: resolvedPath || '',
-        specifiers: imp.specifiers || []
-      };
-    }).filter((imp: ImportInfo) => imp.resolvedPath !== '');
+    const imports: ImportInfo[] = [];
+    for (const imp of (result.imports || [])) {
+      const submodules: any[] = [];
+      const symbols: any[] = [];
+      
+      for (const spec of imp.specifiers) {
+        let resolvedSourcePath: string | null = null;
+        if (imp.source === '.') {
+          resolvedSourcePath = path.dirname(absolutePath);
+        } else {
+          resolvedSourcePath = resolvePyImportPath(absolutePath, imp.source);
+        }
+        
+        if (resolvedSourcePath) {
+          const isDir = fs.existsSync(resolvedSourcePath) && fs.statSync(resolvedSourcePath).isDirectory();
+          const parentDir = isDir ? resolvedSourcePath : path.dirname(resolvedSourcePath);
+          
+          const potentialPyFile = path.resolve(parentDir, spec.exportName + '.py');
+          const potentialInitPyFile = path.resolve(parentDir, spec.exportName, '__init__.py');
+          
+          let resolvedSubmodulePath: string | null = null;
+          if (fs.existsSync(potentialPyFile) && fs.statSync(potentialPyFile).isFile()) {
+            resolvedSubmodulePath = potentialPyFile;
+          } else if (fs.existsSync(potentialInitPyFile) && fs.statSync(potentialInitPyFile).isFile()) {
+            resolvedSubmodulePath = potentialInitPyFile;
+          }
+          
+          if (resolvedSubmodulePath) {
+            submodules.push({
+              source: imp.source === '.' ? '.' + spec.exportName : imp.source + '.' + spec.exportName,
+              resolvedPath: resolvedSubmodulePath,
+              specifiers: [{ localName: spec.localName, exportName: '*' }]
+            });
+            continue;
+          }
+        }
+        symbols.push(spec);
+      }
+      
+      for (const sub of submodules) {
+        imports.push(sub);
+      }
+      
+      if (symbols.length > 0) {
+        const resolvedPath = resolvePyImportPath(absolutePath, imp.source);
+        if (resolvedPath) {
+          imports.push({
+            source: imp.source,
+            resolvedPath: resolvedPath,
+            specifiers: symbols
+          });
+        }
+      }
+    }
 
     const symbols: SymbolInfo[] = (result.symbols || []).map((sym: any) => ({
       name: sym.name,

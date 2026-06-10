@@ -499,4 +499,49 @@ describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
       }
     }
   });
+
+  // Test 25: Python nested attributes and namespace import resolution
+  test('25. DependencyResolver & pyParser - Python Nested Attributes and Multi-level Imports', () => {
+    const tempDir = path.join(__dirname, 'fixtures/py_nested_test_temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir);
+    }
+
+    try {
+      const mathFile = path.join(tempDir, 'math.py');
+      fs.writeFileSync(
+        mathFile,
+        "def add_numbers(a, b):\n" +
+        "    return a + b\n" +
+        "\n" +
+        "def unused_math():\n" +
+        "    pass\n",
+        'utf-8'
+      );
+
+      const mainFile = path.join(tempDir, 'main.py');
+      fs.writeFileSync(
+        mainFile,
+        "from . import math as my_math\n" +
+        "CONFIG = {'database': {'host': 'localhost'}}\n" +
+        "\n" +
+        "def run():\n" +
+        "    print(CONFIG['database']['host'])\n" +
+        "    return my_math.add_numbers(1, 2)\n",
+        'utf-8'
+      );
+
+      const resolver = new DependencyResolver();
+      const res = resolver.resolve(mainFile, 'run');
+      
+      expect(res.filesToSymbols[mainFile].has('CONFIG')).toBe(true);
+      expect(res.filesToSymbols[mathFile]).toBeDefined();
+      expect(res.filesToSymbols[mathFile].has('add_numbers')).toBe(true);
+      expect(res.filesToSymbols[mathFile].has('unused_math')).toBe(false);
+    } finally {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }
+  });
 });

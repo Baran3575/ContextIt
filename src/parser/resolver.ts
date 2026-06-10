@@ -135,41 +135,39 @@ export class DependencyResolver {
     };
   }
 
-  /**
-   * Finds which import declaration in the file brings in the given symbol.
-   */
   private findImportForSymbol(fileDeps: FileDependencies, symbolName: string): { import: ImportInfo; specifier: any } | null {
     const nsSeparator = symbolName.includes('::') ? '::' : '.';
-    const sepIndex = symbolName.indexOf(nsSeparator);
-    if (sepIndex !== -1) {
-      const nsName = symbolName.substring(0, sepIndex);
-      const propName = symbolName.substring(sepIndex + nsSeparator.length);
-      for (const imp of fileDeps.imports) {
-        for (const spec of imp.specifiers) {
-          if (spec.localName === nsName) {
-            if (spec.exportName === '*') {
-              return {
-                import: imp,
-                specifier: {
-                  localName: symbolName,
-                  exportName: propName
-                }
-              };
-            } else {
-              return { import: imp, specifier: spec };
-            }
+    let bestMatch: { import: ImportInfo; specifier: any; prefixLength: number } | null = null;
+
+    for (const imp of fileDeps.imports) {
+      for (const spec of imp.specifiers) {
+        const local = spec.localName;
+        if (symbolName === local) {
+          const length = local.length;
+          if (!bestMatch || length > bestMatch.prefixLength) {
+            bestMatch = { import: imp, specifier: spec, prefixLength: length };
+          }
+        } else if (symbolName.startsWith(local + nsSeparator)) {
+          const length = local.length;
+          if (!bestMatch || length > bestMatch.prefixLength) {
+            const propName = symbolName.substring(local.length + nsSeparator.length);
+            bestMatch = {
+              import: imp,
+              specifier: spec.exportName === '*' ? {
+                localName: symbolName,
+                exportName: propName
+              } : spec,
+              prefixLength: length
+            };
           }
         }
       }
     }
 
-    for (const imp of fileDeps.imports) {
-      for (const spec of imp.specifiers) {
-        if (spec.localName === symbolName) {
-          return { import: imp, specifier: spec };
-        }
-      }
+    if (bestMatch) {
+      return { import: bestMatch.import, specifier: bestMatch.specifier };
     }
+
     return null;
   }
 }

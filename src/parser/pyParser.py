@@ -24,9 +24,20 @@ def parse_python_file(file_path):
     imports = []
     symbols = []
 
+    import_local_names = set()
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            for name in node.names:
+                import_local_names.add(name.asname or name.name)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module or node.level > 0:
+                for n in node.names:
+                    import_local_names.add(n.asname or n.name)
+
     class DependencyExtractor(ast.NodeVisitor):
-        def __init__(self, exclude_name):
+        def __init__(self, exclude_name, import_local_names):
             self.exclude_name = exclude_name
+            self.import_local_names = import_local_names
             self.names = set()
 
         def visit_Name(self, node):
@@ -34,11 +45,31 @@ def parse_python_file(file_path):
                 self.names.add(node.id)
             self.generic_visit(node)
 
+        def get_attribute_chain(self, node):
+            parts = []
+            curr = node
+            while isinstance(curr, ast.Attribute):
+                parts.append(curr.attr)
+                curr = curr.value
+            if isinstance(curr, ast.Name):
+                parts.append(curr.id)
+                return ".".join(reversed(parts))
+            return None
+
         def visit_Attribute(self, node):
-            if isinstance(node.value, ast.Name):
-                self.names.add(f"{node.value.id}.{node.attr}")
-            else:
-                self.generic_visit(node)
+            chain = self.get_attribute_chain(node)
+            if chain:
+                parts = chain.split('.')
+                matched_import = False
+                for i in range(len(parts) - 1, 0, -1):
+                    prefix = ".".join(parts[:i])
+                    if prefix in self.import_local_names:
+                        self.names.add(chain)
+                        matched_import = True
+                        break
+                if matched_import:
+                    return
+            self.generic_visit(node)
 
     for node in tree.body:
         # 1. Extract Imports
@@ -46,7 +77,7 @@ def parse_python_file(file_path):
             for name in node.names:
                 imports.append({
                     "source": name.name,
-                    "specifiers": [{"localName": name.asname or name.name.split('.')[0], "exportName": "*"}]
+                    "specifiers": [{"localName": name.asname or name.name, "exportName": "*"}]
                 })
         elif isinstance(node, ast.ImportFrom):
             if node.module or node.level > 0:
@@ -69,7 +100,7 @@ def parse_python_file(file_path):
             symbol_code = '\n'.join(lines)
 
             # Extract dependencies first
-            extractor = DependencyExtractor(name)
+            extractor = DependencyExtractor(name, import_local_names)
             extractor.visit(node)
 
             # Strip body for declaration code
@@ -111,7 +142,7 @@ def parse_python_file(file_path):
                 lines = code.split('\n')[start_line-1:end_line]
                 symbol_code = '\n'.join(lines)
                 
-                extractor = DependencyExtractor(name)
+                extractor = DependencyExtractor(name, import_local_names)
                 extractor.visit(node.value)
                 
                 symbols.append({
@@ -133,7 +164,7 @@ def parse_python_file(file_path):
                 lines = code.split('\n')[start_line-1:end_line]
                 symbol_code = '\n'.join(lines)
                 
-                extractor = DependencyExtractor(name)
+                extractor = DependencyExtractor(name, import_local_names)
                 if node.value:
                     extractor.visit(node.value)
                 
