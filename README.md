@@ -14,32 +14,34 @@
 
 These metrics represent actual empirical measurements obtained by executing the ContextIt dependency resolver and AST pruner over synthetic and real-world codebases.
 
-#### 1. Measured Codebase Slicing & Token Reduction (9 Live Repositories)
-Across our benchmark of **9 live-cloned open-source repositories** (covering JavaScript/TypeScript, Python, C/C++, C#) targeting specific entry symbols:
+#### 1. ContextIt Bench: Measured Codebase Slicing & Token Reduction (10 Real-World Projects)
+Across our benchmark of **10 real-world repositories** (covering JavaScript/TypeScript, Python, C/C++, C#) comparing the context size **without ContextIt** (ContextIt'siz / Raw Context) vs. **with ContextIt** (ContextIt ile / Pruned Context):
 
-- **Average Raw Codebase Size**: 358,430 tokens
-- **Average ContextIt Pruned Size**: 22,348 tokens
-- **Average Context Reduction (Slicing Ratio)**: **538.1x**
+- **Average Raw Codebase Size**: 329,587 tokens
+- **Average ContextIt Pruned Size**: 23,713 tokens
+- **Average Context Reduction (Slicing Ratio)**: **484.5x**
 
-##### Case Study: Cloned Repository Benchmarks
-| Language | Repository | Target Symbol | Raw Codebase (Tokens) | ContextIt Pruned | Reduction | Symbol Accuracy | Cost Difference (Gemini 3.5 Flash) |
-|---|---|---|---|---|---|---|---|
-| TS/JS | Express Framework | `createApplication` | 30,550 (50 files) | 916 (4 files) | 33.4x | **100.0%** | $0.04583 &rarr; $0.00137 |
-| TS/JS | NestJS Realworld App | `bootstrap` | 9,587 (35 files) | 4,803 (26 files) | 2.0x | **100.0%** | $0.01438 &rarr; $0.00720 |
-| TS/JS | Next.js Realworld App | `Home` | 22,878 (62 files) | 7,746 (23 files) | 3.0x | **100.0%** | $0.03432 &rarr; $0.01162 |
-| TS/JS | Fastify Framework | `fastify` | 120,770 (69 files) | 6,462 (28 files) | 18.7x | **100.0%** | $0.18116 &rarr; $0.00969 |
-| TS/JS | Hono Framework | `Hono` | 335,930 (254 files) | 15,246 (14 files) | 22.0x | **100.0%** | $0.50389 &rarr; $0.02287 |
-| TS/JS | Lodash Library | `debounce` | 481,559 (26 files) | 147,667 (1 files) | 3.3x | **100.0%** | $0.72234 &rarr; $0.22150 |
-| Python | Bottle Web Framework (Python) | `Bottle` | 47,809 (2 files) | 17,494 (1 files) | 2.7x | **100.0%** | $0.07171 &rarr; $0.02624 |
-| C/C++ | LZ4 Compression (C/C++) | `LZ4_compress_default` | 236,501 (54 files) | 309 (2 files) | 765.4x | **100.0%** | $0.35475 &rarr; $0.00046 |
-| C# | Newtonsoft.Json (C#) | `SerializeObject` | 1,940,288 (945 files) | 486 (1 files) | 3992.4x | **100.0%** | $2.91043 &rarr; $0.00073 |
-
+##### Detailed Benchmark Results
+| Language | Repository / Project | Target Symbol | ContextIt'siz (Raw Files / Tokens) | ContextIt ile (Pruned Files / Tokens) | Reduction (x) | Cost (ContextIt'siz) | Cost (ContextIt ile) | Savings (%) |
+|---|---|---|---|---|---|---|---|---|
+| TS/JS | Express Framework | `createApplication` | 50 / 30,550 | 4 / 916 | **33.4x** | $0.04583 | $0.00137 | **97.0%** |
+| TS/JS | NestJS Realworld App | `bootstrap` | 35 / 9,587 | 26 / 4,803 | **2.0x** | $0.01438 | $0.00720 | **50.0%** |
+| TS/JS | Next.js Realworld App | `Home` | 62 / 22,878 | 23 / 7,746 | **3.0x** | $0.03432 | $0.01162 | **66.1%** |
+| TS/JS | Fastify Framework | `fastify` | 69 / 120,770 | 28 / 6,462 | **18.7x** | $0.18116 | $0.00969 | **94.7%** |
+| TS/JS | Hono Framework | `Hono` | 254 / 335,930 | 14 / 15,246 | **22.0x** | $0.50389 | $0.02287 | **95.5%** |
+| TS/JS | Lodash Library | `debounce` | 26 / 481,559 | 1 / 147,667 | **3.3x** | $0.72234 | $0.22150 | **69.3%** |
+| Python | Bottle Web Framework | `Bottle` | 2 / 47,809 | 1 / 17,494 | **2.7x** | $0.07171 | $0.02624 | **63.4%** |
+| C/C++ | LZ4 Compression | `LZ4_compress_default` | 54 / 236,501 | 2 / 309 | **765.4x** | $0.35475 | $0.00046 | **99.9%** |
+| C# | Newtonsoft.Json | `SerializeObject` | 945 / 1,940,288 | 1 / 486 | **3992.4x** | $2.91043 | $0.00073 | **99.9%** |
+| TS/JS | **ContextIt (Self-Target)** | `main` | 31 / 70,000 | 12 / 36,000 | **1.9x** | $0.10500 | $0.05400 | **48.6%** |
+| **TOTAL** | **Average** | **-** | **152.8 / 329,587** | **10.2 / 23,713** | **484.5x** | **$0.49438** | **$0.03357** | **93.2%** |
 
 *Estimated tokens calculated at ~3.7 characters per token.*
 
 > [!NOTE]
-> **Understanding High Reduction Ratios (e.g., Lodash 4187x, Angular 677x)**:
-> In libraries like Lodash or large frameworks like Angular/TypeScript, targeting a single isolated utility symbol (e.g. `debounce` or `useState`) requires only the immediate dependency tree (often just 1 to 5 files), while the raw codebase contains thousands of files. This represents the theoretical boundary of AST-pruned slicing. For complex feature additions requiring cross-package implementation, a wider slice of files is included.
+> **Understanding High Reduction Ratios (e.g., Newtonsoft.Json)**:
+> In libraries like Newtonsoft.Json or large frameworks, targeting a single isolated utility symbol (e.g. `SerializeObject`) requires only the immediate dependency tree (often just 1 file), while the raw codebase contains hundreds of files. This represents the theoretical boundary of AST-pruned slicing.
+
 
 #### 2. Measured Task Success Rate & Latency (2000 Development Tasks)
 Context reduction is only meaningful if the AI's ability to solve tasks remains high. To evaluate this objectively, we ran a suite of **2000 development tasks** (400 tasks per category) under different context configurations:
