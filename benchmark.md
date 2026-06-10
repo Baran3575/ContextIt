@@ -62,8 +62,10 @@ The following table shows the context size difference when targeting specific en
 
 ## 3. Long-Term Cost & Caching Projection
 Assuming a developer session of 50 queries in the Next.js Realworld App:
-- **Raw Context**: Assumes 20% cache hit rate due to random file ordering.
-- **ContextIt (Pruned & Cache-Aligned)**: Assumes 90% cache hit rate due to deterministic cache alignment.
+- **Raw Context**: Assumes a 20% cache hit rate due to random file ordering.
+- **ContextIt (Pruned & Cache-Aligned)**: Assumes a 90% cache hit rate enabled by deterministic cache alignment.
+
+*Note: Actual cache hits vary based on model family, workflow, and repo churn rate. These calculations represent simulated scenarios for comparison.*
 
 | Model | Raw Cost (20% Cache Hit) | Pruned Cost (90% Cache Hit) | Savings | % Saved |
 |---|---|---|---|---|

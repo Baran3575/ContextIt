@@ -427,11 +427,13 @@ export function runAllBenchmarks() {
 
 *Estimated tokens calculated at ~3.7 characters per token.*
 
-### Estimated Session Cost Comparison (50 Queries)
+### Simulated Session Cost Comparison (50 Queries)
 
-Based on a developer session of 50 queries in a Next.js Realworld App codebase:
-- **Raw Context**: Assumes 20% cache hit rate due to random file ordering and code changes.
-- **ContextIt (Pruned & Cache-Aligned)**: Assumes 90% cache hit rate due to deterministic ordering and static-global alignment passes.
+Based on a developer session of 50 queries in a Next.js Realworld App codebase under specific caching assumptions:
+- **Raw Context**: Assumes a 20% cache hit rate due to random file ordering and code changes.
+- **ContextIt (Pruned & Cache-Aligned)**: Assumes a 90% cache hit rate enabled by deterministic ordering and static-global alignment passes.
+
+*Note: Actual cache hits vary based on model family, workflow, and repo churn rate. These calculations represent simulated scenarios for comparison.*
 
 ${nextResult ? generateCostComparisonTable(nextResult.rawTokens, nextResult.prunedTokens, 50) : ''}
 
@@ -544,11 +546,13 @@ Add this configuration to your host configuration file (e.g., \`claude_desktop_c
 
 *Tahmini token sayıları ~3.7 karakter = 1 token olarak hesaplanmıştır.*
 
-### Tahmini Oturum Maliyet Karşılaştırması (50 Sorgu)
+### Simüle Edilmiş Oturum Maliyet Karşılaştırması (50 Sorgu)
 
 Bir Next.js Realworld App kod tabanında yapılan 50 sorguluk bir geliştirici oturumu baz alınmıştır:
-- **Ham Bağlam (Raw)**: Rastgele dosya sıralaması ve değişiklikler nedeniyle %20 önbellek eşleşmesi (cache hit) varsayılmıştır.
+- **Ham Bağlam (Raw)**: Rastgele dosya sıralaması ve kod değişiklikleri nedeniyle %20 önbellek eşleşmesi (cache hit) varsayılmıştır.
 - **ContextIt (Budanmış ve Hizalanmış)**: Deterministik topolojik sıralama ve statik-global hizalama geçişleri sayesinde %90 önbellek eşleşmesi varsayılmıştır.
+
+*Not: Gerçek önbellek eşleşme oranları model ailesine, iş akışına ve kod değişim sıklığına göre değişiklik gösterir. Bu hesaplamalar karşılaştırma amaçlı simülasyonları temsil etmektedir.*
 
 ${nextResult ? generateCostComparisonTable(nextResult.rawTokens, nextResult.prunedTokens, 50) : ''}
 
@@ -704,8 +708,10 @@ ${realTable}
 
 ## 3. Long-Term Cost & Caching Projection
 Assuming a developer session of 50 queries in the Next.js Realworld App:
-- **Raw Context**: Assumes 20% cache hit rate due to random file ordering.
-- **ContextIt (Pruned & Cache-Aligned)**: Assumes 90% cache hit rate due to deterministic cache alignment.
+- **Raw Context**: Assumes a 20% cache hit rate due to random file ordering.
+- **ContextIt (Pruned & Cache-Aligned)**: Assumes a 90% cache hit rate enabled by deterministic cache alignment.
+
+*Note: Actual cache hits vary based on model family, workflow, and repo churn rate. These calculations represent simulated scenarios for comparison.*
 
 ${nextResult ? generateCostComparisonTable(nextResult.rawTokens, nextResult.prunedTokens, 50) : ''}
 
