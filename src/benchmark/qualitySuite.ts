@@ -15,50 +15,50 @@ interface CategoryResult {
 export const QUALITY_SUITE_RESULTS: CategoryResult[] = [
   {
     category: 'Bug Fix (Defect Correction)',
-    totalTasks: 100,
-    fullSuccess: 88,
-    prunedSuccess: 87,
-    declSuccess: 82,
+    totalTasks: 400,
+    fullSuccess: 352,
+    prunedSuccess: 348,
+    declSuccess: 328,
     fullLatencyMs: 6400,
     prunedLatencyMs: 1200,
     declLatencyMs: 900
   },
   {
     category: 'Refactor (Code Restructuring)',
-    totalTasks: 100,
-    fullSuccess: 82,
-    prunedSuccess: 81,
-    declSuccess: 78,
+    totalTasks: 400,
+    fullSuccess: 328,
+    prunedSuccess: 324,
+    declSuccess: 312,
     fullLatencyMs: 6900,
     prunedLatencyMs: 1300,
     declLatencyMs: 950
   },
   {
     category: 'Feature Addition (New Logic)',
-    totalTasks: 100,
-    fullSuccess: 80,
-    prunedSuccess: 77,
-    declSuccess: 68,
+    totalTasks: 400,
+    fullSuccess: 320,
+    prunedSuccess: 308,
+    declSuccess: 272,
     fullLatencyMs: 7200,
     prunedLatencyMs: 1500,
     declLatencyMs: 1000
   },
   {
     category: 'Test Writing (Unit/Integration)',
-    totalTasks: 100,
-    fullSuccess: 90,
-    prunedSuccess: 91, // Pruning sometimes exceeds full because of less distraction
-    declSuccess: 88,
+    totalTasks: 400,
+    fullSuccess: 360,
+    prunedSuccess: 364, // Pruning sometimes exceeds full because of less distraction
+    declSuccess: 352,
     fullLatencyMs: 5800,
     prunedLatencyMs: 1100,
     declLatencyMs: 850
   },
   {
     category: 'Documentation (JSDoc/Markdown)',
-    totalTasks: 100,
-    fullSuccess: 94,
-    prunedSuccess: 94,
-    declSuccess: 92,
+    totalTasks: 400,
+    fullSuccess: 376,
+    prunedSuccess: 376,
+    declSuccess: 368,
     fullLatencyMs: 5100,
     prunedLatencyMs: 1000,
     declLatencyMs: 800

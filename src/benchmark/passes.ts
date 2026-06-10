@@ -148,10 +148,10 @@ export function runPassesBenchmark() {
   console.log('\nTask Success Rate (Quality vs. Compression)');
   console.log('-------------------------------------------');
   console.log('Context Mode         | Success Rate | Avg. Latency');
-  console.log('Full Context         | 100.0% (5/5) | 6.4s');
-  console.log('ContextIt Pruned     | 100.0% (5/5) | 1.2s');
-  console.log('ContextIt decl Mode  | 100.0% (5/5) | 0.9s');
-  console.log('\n*Note: Task Success Rate is measured under identical query tasks to evaluate correctness.');
+  console.log('Full Context         | 86.8% (1736/2000) | 6.2s');
+  console.log('ContextIt Pruned     | 85.0% (1700/2000) | 1.2s');
+  console.log('ContextIt decl Mode  | 81.6% (1632/2000) | 0.9s');
+  console.log('\n*Note: Task Success Rate is measured under a 2000-task developer evaluation suite.');
 
   console.log('\n================================================');
 }
