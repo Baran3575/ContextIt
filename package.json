@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/Baran3575/ContextIt#readme",
   "devDependencies": {
+    "@actions/core": "^3.0.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.9.2",
     "jest": "^30.4.2",

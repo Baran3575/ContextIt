@@ -1,0 +1,32 @@
+name: 'ContextIt AST Pruner Action'
+description: 'Compiles, dependency-resolves, and prunes codebases into token-minimized LLM contexts'
+author: 'Baran3575'
+inputs:
+  entry:
+    description: 'Path to the entry file (Required)'
+    required: true
+  symbol:
+    description: 'Target symbol (class, function, or method) to focus pruning on'
+    required: false
+  mode:
+    description: 'Pruning mode: "full" (keep used function bodies) or "decl" (declaration-only for dependencies)'
+    required: false
+    default: 'full'
+  output:
+    description: 'Output file path to save the pruned context'
+    required: false
+    default: 'pruned_context.md'
+  no-metrics:
+    description: 'Omit the prepended markdown metrics callout block'
+    required: false
+    default: 'false'
+  stats:
+    description: 'Print a file-by-file token reduction summary table'
+    required: false
+    default: 'true'
+outputs:
+  pruned-file:
+    description: 'The path to the generated pruned context file'
+runs:
+  using: 'node20'
+  main: 'dist/action/index.js'
