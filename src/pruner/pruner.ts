@@ -1,8 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { PrunedContextResult } from '../parser/resolver';
 import { SymbolInfo, ImportInfo } from '../parser/tsParser';
 import { sortFilesForCaching } from './cacheSorter';
+
 
 function findProjectRoot(entryPath: string): string {
   let dir = path.dirname(path.resolve(entryPath));
@@ -19,7 +21,9 @@ function findProjectRoot(entryPath: string): string {
 export interface PruneOptions {
   mode: 'full' | 'decl';
   noMetrics?: boolean;
+  tokenBudget?: number;
 }
+
 
 /**
  * Strips the function body of a function signature, leaving only the declaration.
@@ -146,12 +150,13 @@ export class CodePruner {
    */
   public prune(result: PrunedContextResult, options: PruneOptions, entryFile: string): string {
     const absoluteEntry = path.resolve(entryFile);
-    let bodyOutput = '';
     const projectRoot = findProjectRoot(entryFile);
     const { filePaths } = sortFilesForCaching(result, entryFile, projectRoot);
 
+    const fileBlocks: Record<string, string> = {};
 
     for (const filePath of filePaths) {
+      let fileBlock = '';
       const neededSymbols = result.filesToSymbols[filePath];
       const fileDeps = result.parsedFiles[filePath];
       const isEntryFile = filePath === absoluteEntry;
@@ -162,8 +167,8 @@ export class CodePruner {
       if (ext === '.py') lang = 'python';
       else if (ext === '.rs') lang = 'rust';
 
-      bodyOutput += `## File: \`${relativePath}\`\n`;
-      bodyOutput += `\`\`\`${lang}\n`;
+      fileBlock += `## File: \`${relativePath}\`\n`;
+      fileBlock += `\`\`\`${lang}\n`;
 
       // 1. Output relevant imports with pruned specifiers
       const relevantImports = fileDeps.imports.filter(imp => {
@@ -196,7 +201,7 @@ export class CodePruner {
             
             const namespaceSpec = activeSpecifiers.find(s => s.exportName === '*');
             if (namespaceSpec) {
-              bodyOutput += `import * as ${namespaceSpec.localName} from '${cleanPath}';\n`;
+              fileBlock += `import * as ${namespaceSpec.localName} from '${cleanPath}';\n`;
             } else {
               const defaultSpec = activeSpecifiers.find(s => s.exportName === 'default');
               const namedSpecs = activeSpecifiers.filter(s => s.exportName !== 'default' && s.exportName !== '*');
@@ -214,7 +219,7 @@ export class CodePruner {
                 });
                 parts.push(`{ ${namedStrings.join(', ')} }`);
               }
-              bodyOutput += `import ${parts.join(', ')} from '${cleanPath}';\n`;
+              fileBlock += `import ${parts.join(', ')} from '${cleanPath}';\n`;
             }
           } else if (lang === 'python') {
             const pythonModule = getPythonRelativeModule(filePath, imp.resolvedPath);
@@ -225,15 +230,15 @@ export class CodePruner {
                 const parentDots = pythonModule.substring(0, lastDot);
                 const moduleName = pythonModule.substring(lastDot + 1);
                 if (nsSpec.localName && nsSpec.localName !== moduleName) {
-                  bodyOutput += `from ${parentDots || '.'} import ${moduleName} as ${nsSpec.localName}\n`;
+                  fileBlock += `from ${parentDots || '.'} import ${moduleName} as ${nsSpec.localName}\n`;
                 } else {
-                  bodyOutput += `from ${parentDots || '.'} import ${moduleName}\n`;
+                  fileBlock += `from ${parentDots || '.'} import ${moduleName}\n`;
                 }
               } else {
                 if (nsSpec.localName && nsSpec.localName !== pythonModule) {
-                  bodyOutput += `import ${pythonModule} as ${nsSpec.localName}\n`;
+                  fileBlock += `import ${pythonModule} as ${nsSpec.localName}\n`;
                 } else {
-                  bodyOutput += `import ${pythonModule}\n`;
+                  fileBlock += `import ${pythonModule}\n`;
                 }
               }
             } else {
@@ -244,13 +249,13 @@ export class CodePruner {
                   return `${s.exportName} as ${s.localName}`;
                 }
               });
-              bodyOutput += `from ${pythonModule} import ${namedStrings.join(', ')}\n`;
+              fileBlock += `from ${pythonModule} import ${namedStrings.join(', ')}\n`;
             }
           } else if (lang === 'rust') {
             const hasWildcard = activeSpecifiers.some(s => s.exportName === '*');
             if (hasWildcard) {
               const modName = imp.source.split('::').pop();
-              bodyOutput += `mod ${modName};\n`;
+              fileBlock += `mod ${modName};\n`;
             } else {
               const namedStrings = activeSpecifiers.map(s => {
                 if (s.localName === s.exportName) {
@@ -260,14 +265,14 @@ export class CodePruner {
                 }
               });
               if (namedStrings.length === 1) {
-                bodyOutput += `use ${imp.source}::${namedStrings[0]};\n`;
+                fileBlock += `use ${imp.source}::${namedStrings[0]};\n`;
               } else if (namedStrings.length > 1) {
-                bodyOutput += `use ${imp.source}::{${namedStrings.join(', ')}};\n`;
+                fileBlock += `use ${imp.source}::{${namedStrings.join(', ')}};\n`;
               }
             }
           }
         });
-        bodyOutput += '\n';
+        fileBlock += '\n';
       }
 
       // 2. Output symbols
@@ -288,12 +293,36 @@ export class CodePruner {
           // Optimization: Strip comments
           symbolCode = stripComments(symbolCode, lang);
 
-          bodyOutput += `${symbolCode}\n\n`;
+          fileBlock += `${symbolCode}\n\n`;
         }
       }
 
-      bodyOutput += '```\n\n';
+      fileBlock += '```\n\n';
+      fileBlocks[filePath] = fileBlock;
     }
+
+    let bodyOutput = '';
+    if (options.tokenBudget !== undefined) {
+      const baseTokens = 150;
+      const entryBlock = fileBlocks[absoluteEntry] || '';
+      let currentTokens = baseTokens + Math.ceil(entryBlock.length / 3.7);
+
+      const dependencyPaths = filePaths.filter(p => p !== absoluteEntry);
+      for (const filePath of dependencyPaths) {
+        const block = fileBlocks[filePath] || '';
+        const blockTokens = Math.ceil(block.length / 3.7);
+        if (currentTokens + blockTokens <= options.tokenBudget) {
+          bodyOutput += block;
+          currentTokens += blockTokens;
+        }
+      }
+      bodyOutput += entryBlock;
+    } else {
+      for (const filePath of filePaths) {
+        bodyOutput += fileBlocks[filePath] || '';
+      }
+    }
+
 
     // Calculate metrics
     let rawTotalCharacters = 0;
@@ -312,14 +341,20 @@ export class CodePruner {
     const prunedCost = (prunedTokens * COST_PER_TOKEN).toFixed(5);
     const percentSavings = Math.round((1 - prunedTokens / (rawTokens || 1)) * 100);
 
-    let output = '# ContextIt: Compressed Project Context\n\n';
+    const hash = crypto.createHash('sha256').update(bodyOutput).digest('hex');
+    const fingerprint = `ctx://${hash.substring(0, 7)}`;
+
+    let output = '# ContextIt: Compressed Project Context\n';
+    output += `<!-- fingerprint: ${fingerprint} -->\n\n`;
     if (!options.noMetrics) {
       output += `> [!NOTE]\n`;
       output += `> **Context Slicing & Cost Reduction Metrics (Est.)**:\n`;
+      output += `> - **Fingerprint**: \`${fingerprint}\`\n`;
       output += `> - **Raw Context Size**: ~${rawTokens.toLocaleString()} tokens\n`;
       output += `> - **Pruned Context Size**: ~${prunedTokens.toLocaleString()} tokens (**${reductionRatio.toFixed(1)}x reduction**)\n`;
       output += `> - **Gemini 3.5 Flash Cost**: $${rawCost} &rarr; $${prunedCost} (**${percentSavings}% savings**)\n\n`;
     }
+
 
     output += bodyOutput;
     return output;

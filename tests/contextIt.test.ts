@@ -7,6 +7,8 @@ import { parsePythonFile } from '../src/parser/pyParser';
 import { parseRustFile } from '../src/parser/rsParser';
 import { buildContextIR } from '../src/parser/ir';
 import { sortFilesForCaching } from '../src/pruner/cacheSorter';
+import { minimizeTool, minimizeSchema } from '../src/mcp/schemaMinimizer';
+
 
 
 
@@ -593,6 +595,52 @@ describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
 
     // main.ts is the entry, so it must be Level 4
     expect(sorted.levels[mainFixturePath]).toBe(4);
+  });
+
+  // Test 28: MCP Tool Schema Minimizer
+  test('28. SchemaMinimizer - minimizes tool schema description and parameters', () => {
+    const mockTool = {
+      name: 'get_pruned_context',
+      description: 'Extracts an AST-pruned, dependency-mapped, caching-optimized context starting from a target file and symbol.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          entryFile: {
+            type: 'string',
+            description: 'Path to the entry file (absolute or relative to workspace root)'
+          },
+          symbol: {
+            type: 'string',
+            description: 'Focus only on a specific class or function dependency tree'
+          }
+        },
+        required: ['entryFile']
+      }
+    };
+
+    const minimized = minimizeTool(mockTool);
+
+    expect(minimized.name).toBe('get_pruned_context');
+    expect(minimized.description).toBe('Extracts an AST-pruned, dependency-mapped, caching-optimized context starting from a target file and symbol.');
+    expect(minimized.inputSchema.properties.entryFile.description).toBe('Path of entry file');
+    expect(minimized.inputSchema.properties.symbol.description).toBe('Target specific class or function dependency tree');
+  });
+
+  // Test 29: Token budgeting verification
+  test('29. CodePruner - restricts output within specified token budget and retains entrypoint', () => {
+    const resolver = new DependencyResolver();
+    const resolution = resolver.resolve(mainFixturePath, 'registerUser');
+    const pruner = new CodePruner();
+    
+    const fullOutput = pruner.prune(resolution, { mode: 'full' }, mainFixturePath);
+    const fullTokens = Math.ceil(fullOutput.length / 3.7);
+
+    const budgetedOutput = pruner.prune(resolution, { mode: 'full', tokenBudget: 180 }, mainFixturePath);
+    const budgetedTokens = Math.ceil(budgetedOutput.length / 3.7);
+
+    expect(budgetedTokens).toBeLessThan(fullTokens);
+    expect(budgetedTokens).toBeLessThanOrEqual(180);
+    expect(budgetedOutput).toContain('registerUser');
   });
 });
 
