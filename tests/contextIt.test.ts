@@ -5,6 +5,10 @@ import { CodePruner, stripFunctionBody, stripComments } from '../src/pruner/prun
 import { resolveImportPath, parseTSFile } from '../src/parser/tsParser';
 import { parsePythonFile } from '../src/parser/pyParser';
 import { parseRustFile } from '../src/parser/rsParser';
+import { buildContextIR } from '../src/parser/ir';
+import { sortFilesForCaching } from '../src/pruner/cacheSorter';
+
+
 
 describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
   const mainFixturePath = path.resolve(__dirname, 'fixtures/main.ts');
@@ -544,4 +548,51 @@ describe('ContextIt - Comprehensive Test Suite (10+ Tests)', () => {
       }
     }
   });
+
+  // Test 26: Context IR and context_stats generation
+  test('26. ContextIR - buildContextIR generates valid JSON structure and stats', () => {
+    const resolver = new DependencyResolver();
+    const resolution = resolver.resolve(mainFixturePath, 'registerUser');
+    const pruner = new CodePruner();
+    const prunedText = pruner.prune(resolution, { mode: 'full' }, mainFixturePath);
+    
+    const projectRoot = path.dirname(__dirname);
+    const ir = buildContextIR(
+      resolution,
+      mainFixturePath,
+      'registerUser',
+      'Test task instruction',
+      prunedText,
+      projectRoot
+    );
+
+    expect(ir.metadata.entryPoint).toContain('main.ts');
+    expect(ir.metadata.targetSymbol).toBe('registerUser');
+    expect(ir.task.instruction).toBe('Test task instruction');
+    expect(ir.metadata.fingerprint.startsWith('ctx://')).toBe(true);
+    expect(ir.context_stats.files).toBeGreaterThan(0);
+    expect(ir.context_stats.symbols).toBeGreaterThan(0);
+    expect(ir.context_stats.tokens).toBeGreaterThan(0);
+  });
+
+  // Test 27: Deterministic topological cache sorting
+  test('27. CacheSorter - sorts files topologically and places entry file at the end', () => {
+    const resolver = new DependencyResolver();
+    const resolution = resolver.resolve(mainFixturePath, 'registerUser');
+    const projectRoot = path.dirname(__dirname);
+    const sorted = sortFilesForCaching(resolution, mainFixturePath, projectRoot);
+
+    expect(sorted.filePaths.length).toBeGreaterThan(1);
+    // The entry file must be at the very end of the sorted array
+    expect(sorted.filePaths[sorted.filePaths.length - 1]).toBe(mainFixturePath);
+
+    // Verify stability level assignment:
+    // db.ts has 0 local dependencies, so it should be Level 1
+    const dbPath = path.resolve(__dirname, 'fixtures/db.ts');
+    expect(sorted.levels[dbPath]).toBe(1);
+
+    // main.ts is the entry, so it must be Level 4
+    expect(sorted.levels[mainFixturePath]).toBe(4);
+  });
 });
+

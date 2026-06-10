@@ -2,6 +2,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PrunedContextResult } from '../parser/resolver';
 import { SymbolInfo, ImportInfo } from '../parser/tsParser';
+import { sortFilesForCaching } from './cacheSorter';
+
+function findProjectRoot(entryPath: string): string {
+  let dir = path.dirname(path.resolve(entryPath));
+  while (dir !== path.parse(dir).root) {
+    if (fs.existsSync(path.join(dir, '.git'))) {
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  return path.dirname(path.resolve(entryPath));
+}
+
 
 export interface PruneOptions {
   mode: 'full' | 'decl';
@@ -134,13 +147,9 @@ export class CodePruner {
   public prune(result: PrunedContextResult, options: PruneOptions, entryFile: string): string {
     const absoluteEntry = path.resolve(entryFile);
     let bodyOutput = '';
-    
-    // Sort files: place entry file at the very end to maximize Claude's Prompt Caching
-    const filePaths = Object.keys(result.filesToSymbols).sort((a, b) => {
-      if (a === absoluteEntry) return 1;
-      if (b === absoluteEntry) return -1;
-      return a.localeCompare(b);
-    });
+    const projectRoot = findProjectRoot(entryFile);
+    const { filePaths } = sortFilesForCaching(result, entryFile, projectRoot);
+
 
     for (const filePath of filePaths) {
       const neededSymbols = result.filesToSymbols[filePath];
