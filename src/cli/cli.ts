@@ -121,6 +121,9 @@ export function main() {
     console.log();
     const { runPassesBenchmark } = require('../benchmark/passes');
     runPassesBenchmark();
+    console.log();
+    const { runQualitySuiteBenchmark } = require('../benchmark/qualitySuite');
+    runQualitySuiteBenchmark();
     return;
   }
 
