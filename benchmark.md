@@ -143,28 +143,3 @@ To replicate the results in this document, run the following command at the proj
 npm run benchmark:real
 `
 The script will clone the test repositories into a temporary directory, run the dependency resolver and pruner, and update the benchmark figures in `README.md` and `benchmark.md`.
-
-
-## 5. Sub-agent Context Comprehension Evaluation
-Comparing AI agent comprehension and completion performance when using full raw codebase vs. ContextIt pruned contexts.
-
-### A. Codebase Setup
-- Entry symbol: `App` in `app.ts`.
-- Active dependencies: `calculator.ts`, `math.ts`, `logger.ts`.
-- Noise/distractor files: `noise1.ts` (DatabaseService), `noise2.ts` (WebServer).
-
-### B. LLM Sub-agent Performance Evaluation (Simulated/Predictive)
-*Simulated based on context distraction metrics and attention entropy models.*
-
-| Metric | Sub-agent A (Raw Context) | Sub-agent B (ContextIt Pruned) | Improvement |
-|---|---|---|---|
-| Input Context Size | 592 tokens | 458 tokens | **1.3x smaller** |
-| Latency (Est.) | 3,100ms | 950ms | **3.2x faster response** |
-| Distraction Index | High (contains DatabaseService, WebServer) | Zero (focused on Calculator, Logger) | **100% focused attention** |
-| Correctness Probability | 88% | **94%** | **+6% higher task success** |
-
-#### Why ContextIt Pruned Context performs better:
-1. **Reduces Distraction**: Models can get distracted by unrelated classes like `DatabaseService` or `WebServer` in large contexts (also known as the "Lost in the Middle" phenomenon).
-2. **Improves Prompt Caching**: A clean, stable dependency-only context results in significantly higher cache hit rates, lowering cost by up to 90%.
-3. **Reduces Output Latency**: Smaller input context lets the LLM process requests faster and generate more direct answers.
-

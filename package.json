@@ -10,8 +10,7 @@
     "cli": "node dist/cli/cli.js",
     "validate": "node dist/benchmark/validate.js",
     "benchmark:real": "node dist/benchmark/realWorld.js",
-    "benchmark:quality": "node dist/benchmark/quality.js",
-    "benchmark:subagent": "node dist/benchmark/subagentEval.js"
+    "benchmark:quality": "node dist/benchmark/quality.js"
   },
   "repository": {
     "type": "git",
