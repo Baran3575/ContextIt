@@ -22,6 +22,7 @@ export interface PruneOptions {
   mode: 'full' | 'decl';
   noMetrics?: boolean;
   tokenBudget?: number;
+  targetSymbol?: string;
 }
 
 
@@ -342,8 +343,11 @@ export class CodePruner {
         if (neededSymbols.has(symbol.name)) {
           let symbolCode = symbol.code;
           const preserveFull = shouldPreserveFullSymbol(symbolCode);
+          
+          const isTarget = options.targetSymbol ? symbol.name === options.targetSymbol : false;
+          const shouldPruneBody = options.mode === 'decl' && !isTarget && !preserveFull;
 
-          if (options.mode === 'decl' && !isEntryFile && !preserveFull) {
+          if (shouldPruneBody) {
             if (symbol.declCode) {
               symbolCode = symbol.declCode;
             } else if (symbol.type === 'function') {
@@ -398,13 +402,18 @@ export class CodePruner {
       } catch (e) {}
     }
 
-    const rawTokens = Math.ceil(rawTotalCharacters / 3.7);
-    const prunedTokens = Math.ceil(bodyOutput.length / 3.7);
+    let rawTokens = Math.ceil(rawTotalCharacters / 3.7);
+    let prunedTokens = Math.ceil(bodyOutput.length / 3.7);
+    if (prunedTokens > rawTokens) {
+      prunedTokens = rawTokens;
+    }
     const reductionRatio = rawTokens / (prunedTokens || 1);
     const COST_PER_TOKEN = 1.50 / 1_000_000;
     const rawCost = (rawTokens * COST_PER_TOKEN).toFixed(5);
     const prunedCost = (prunedTokens * COST_PER_TOKEN).toFixed(5);
-    const percentSavings = Math.round((1 - prunedTokens / (rawTokens || 1)) * 100);
+    const percentSavings = rawTokens > 0 
+      ? Math.max(0, Math.round((1 - prunedTokens / rawTokens) * 100))
+      : 0;
 
     const hash = crypto.createHash('sha256').update(bodyOutput).digest('hex');
     const fingerprint = `ctx://${hash.substring(0, 7)}`;
@@ -419,7 +428,6 @@ export class CodePruner {
       output += `> - **Pruned Context Size**: ~${prunedTokens.toLocaleString()} tokens (**${reductionRatio.toFixed(1)}x reduction**)\n`;
       output += `> - **Gemini 3.5 Flash Cost**: $${rawCost} &rarr; $${prunedCost} (**${percentSavings}% savings**)\n\n`;
     }
-
 
     output += bodyOutput;
     return output;

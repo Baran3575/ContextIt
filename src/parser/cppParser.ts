@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { FileDependencies, SymbolInfo, ImportInfo } from './tsParser';
+import { stripClassMethods } from './csParser';
+
 
 /**
  * Resolves local C/C++ include paths.
@@ -172,7 +174,10 @@ export function parseCppFile(filePath: string): FileDependencies {
       symbolType = 'function';
     }
 
-    const declCode = symbolType === 'function' ? stripCppFunctionBody(symbolCode) : symbolCode;
+    const declCode = symbolType === 'function' 
+      ? stripCppFunctionBody(symbolCode) 
+      : (symbolType === 'class' ? stripClassMethods(symbolCode) : symbolCode);
+
 
     // Check if symbol is already added (e.g. function declarations/definitions duplication)
     if (!symbols.some(s => s.name === name && s.start === startIndex)) {

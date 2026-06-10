@@ -13,21 +13,21 @@ The following table shows the context size difference when targeting specific en
 
 #### Averages Across All 9 Repositories:
 - **Average Raw Codebase Size**: 358,430 tokens
-- **Average ContextIt Pruned Size**: 25,819 tokens
-- **Average Token Savings (Reduction)**: **343.3x**
+- **Average ContextIt Pruned Size**: 21,433 tokens
+- **Average Token Savings (Reduction)**: **538.4x**
 
 #### Detailed Benchmarks:
 | Language | Repository | Target Symbol | Raw Codebase (Tokens) | ContextIt Pruned | Reduction | Symbol Accuracy | Cost Difference (Gemini 3.5 Flash) |
 |---|---|---|---|---|---|---|---|
-| TS/JS | Express Framework | `createApplication` | 30,550 (50 files) | 1,008 (4 files) | 30.3x | **100.0%** | $0.04583 &rarr; $0.00151 |
-| TS/JS | NestJS Realworld App | `bootstrap` | 9,587 (35 files) | 4,937 (26 files) | 1.9x | **100.0%** | $0.01438 &rarr; $0.00741 |
+| TS/JS | Express Framework | `createApplication` | 30,550 (50 files) | 916 (4 files) | 33.4x | **100.0%** | $0.04583 &rarr; $0.00137 |
+| TS/JS | NestJS Realworld App | `bootstrap` | 9,587 (35 files) | 4,803 (26 files) | 2.0x | **100.0%** | $0.01438 &rarr; $0.00720 |
 | TS/JS | Next.js Realworld App | `Home` | 22,878 (62 files) | 7,746 (23 files) | 3.0x | **100.0%** | $0.03432 &rarr; $0.01162 |
-| TS/JS | Fastify Framework | `fastify` | 120,770 (69 files) | 13,608 (28 files) | 8.9x | **100.0%** | $0.18116 &rarr; $0.02041 |
-| TS/JS | Hono Framework | `Hono` | 335,930 (254 files) | 15,217 (14 files) | 22.1x | **100.0%** | $0.50389 &rarr; $0.02283 |
+| TS/JS | Fastify Framework | `fastify` | 120,770 (69 files) | 6,462 (28 files) | 18.7x | **100.0%** | $0.18116 &rarr; $0.00969 |
+| TS/JS | Hono Framework | `Hono` | 335,930 (254 files) | 15,246 (14 files) | 22.0x | **100.0%** | $0.50389 &rarr; $0.02287 |
 | TS/JS | Lodash Library | `debounce` | 481,559 (26 files) | 147,667 (1 files) | 3.3x | **100.0%** | $0.72234 &rarr; $0.22150 |
-| Python | Bottle Web Framework (Python) | `Bottle` | 47,809 (2 files) | 41,013 (1 files) | 1.2x | **100.0%** | $0.07171 &rarr; $0.06152 |
-| C/C++ | LZ4 Compression (C/C++) | `LZ4_compress_default` | 236,501 (54 files) | 327 (2 files) | 723.2x | **100.0%** | $0.35475 &rarr; $0.00049 |
-| C# | Newtonsoft.Json (C#) | `SerializeObject` | 1,940,288 (945 files) | 845 (1 files) | 2296.2x | **100.0%** | $2.91043 &rarr; $0.00127 |
+| Python | Bottle Web Framework (Python) | `Bottle` | 47,809 (2 files) | 9,265 (1 files) | 5.2x | **100.0%** | $0.07171 &rarr; $0.01390 |
+| C/C++ | LZ4 Compression (C/C++) | `LZ4_compress_default` | 236,501 (54 files) | 309 (2 files) | 765.4x | **100.0%** | $0.35475 &rarr; $0.00046 |
+| C# | Newtonsoft.Json (C#) | `SerializeObject` | 1,940,288 (945 files) | 486 (1 files) | 3992.4x | **100.0%** | $2.91043 &rarr; $0.00073 |
 
 
 *Note on High Reduction Ratios*: 

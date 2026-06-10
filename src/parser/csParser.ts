@@ -104,6 +104,90 @@ export function stripCSharpMethodBody(code: string): string {
 }
 
 /**
+ * Strips C# and C++ class method bodies, leaving method declarations empty.
+ */
+export function stripClassMethods(code: string): string {
+  let output = '';
+  let nestingLevel = 0;
+  let inString = false;
+  let stringChar = '';
+  let inComment = false;
+  let inLineComment = false;
+  
+  for (let i = 0; i < code.length; i++) {
+    const char = code[i];
+    const nextChar = code[i + 1] || '';
+    
+    if (inLineComment) {
+      if (char === '\n') {
+        inLineComment = false;
+        if (nestingLevel < 2) output += char;
+      }
+      continue;
+    }
+    if (inComment) {
+      if (char === '*' && nextChar === '/') {
+        inComment = false;
+        i++;
+      }
+      continue;
+    }
+    
+    if (char === '/' && nextChar === '/') {
+      inLineComment = true;
+      i++;
+      continue;
+    }
+    if (char === '/' && nextChar === '*') {
+      inComment = true;
+      i++;
+      continue;
+    }
+    
+    if (inString) {
+      if (char === '\\') {
+        i++;
+      } else if (char === stringChar) {
+        inString = false;
+      }
+      continue;
+    }
+    
+    if (char === '"' || char === "'") {
+      inString = true;
+      stringChar = char;
+      if (nestingLevel < 2) output += char;
+      continue;
+    }
+    
+    if (char === '{') {
+      nestingLevel++;
+      if (nestingLevel === 1) {
+        output += char;
+      } else if (nestingLevel === 2) {
+        output += ' {}';
+      }
+      continue;
+    }
+    
+    if (char === '}') {
+      nestingLevel--;
+      if (nestingLevel === 0) {
+        output += char;
+      }
+      continue;
+    }
+    
+    if (nestingLevel < 2) {
+      output += char;
+    }
+  }
+  
+  return output;
+}
+
+
+/**
  * Parses C# files (.cs) using regex and bracket matching.
  */
 export function parseCSharpFile(filePath: string): FileDependencies {
@@ -231,7 +315,10 @@ export function parseCSharpFile(filePath: string): FileDependencies {
       symbolType = 'function';
     }
 
-    const declCode = symbolType === 'function' ? stripCSharpMethodBody(symbolCode) : symbolCode;
+    const declCode = symbolType === 'function' 
+      ? stripCSharpMethodBody(symbolCode) 
+      : (symbolType === 'class' ? stripClassMethods(symbolCode) : symbolCode);
+
 
     if (!symbols.some(s => s.name === name && s.start === startIndex)) {
       symbols.push({

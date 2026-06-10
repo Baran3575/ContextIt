@@ -287,16 +287,63 @@ export function parsePythonFile(filePath: string): FileDependencies {
           const indentSpace = line.match(/^([ \t]*)/)?.[1] || '';
           declCode = sigLines.join('\n') + `\n${indentSpace}    pass`;
         } else if (type === 'class') {
-          declCode = symbolCode
-            .split('\n')
-            .map(l => {
-              if (l.trim().startsWith('def ')) {
-                const indent = l.match(/^([ \t]*)/)?.[1] || '';
-                return `${l.split(':')[0]}:\n${indent}    pass`;
+          const classLines = symbolCode.split('\n');
+          const outputLines: string[] = [];
+          let skipIndentLevel = -1;
+          
+          for (let k = 0; k < classLines.length; k++) {
+            const l = classLines[k];
+            const trimmed = l.trim();
+            if (trimmed === '') {
+              if (skipIndentLevel === -1) {
+                outputLines.push(l);
               }
-              return l;
-            })
-            .join('\n');
+              continue;
+            }
+            
+            const currentIndent = l.match(/^([ \t]*)/)?.[0].length || 0;
+            
+            if (skipIndentLevel !== -1) {
+              if (currentIndent > skipIndentLevel) {
+                continue; // Skip the method body line
+              } else {
+                skipIndentLevel = -1; // End skipping
+              }
+            }
+            
+            if (trimmed.startsWith('def ')) {
+              // Extract method signature lines
+              let sigLines: string[] = [l];
+              let parenCount = 0;
+              for (const char of l) {
+                if (char === '(') parenCount++;
+                else if (char === ')') parenCount--;
+              }
+              
+              let m = k;
+              while (parenCount > 0 && m + 1 < classLines.length) {
+                m++;
+                const nextLine = classLines[m];
+                sigLines.push(nextLine);
+                for (const char of nextLine) {
+                  if (char === '(') parenCount++;
+                  else if (char === ')') parenCount--;
+                }
+              }
+              
+              outputLines.push(...sigLines);
+              
+              const defIndent = sigLines[0].match(/^([ \t]*)/)?.[0].length || 0;
+              const indentStr = sigLines[0].match(/^([ \t]*)/)?.[0] || '';
+              
+              outputLines.push(`${indentStr}    pass`);
+              skipIndentLevel = defIndent;
+              k = m;
+            } else {
+              outputLines.push(l);
+            }
+          }
+          declCode = outputLines.join('\n');
         }
 
         symbols.push({

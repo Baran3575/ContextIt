@@ -188,7 +188,7 @@ export function main() {
     const pruner = new CodePruner();
 
     const resolution = resolver.resolve(entry, symbol);
-    const resultContext = pruner.prune(resolution, { mode, noMetrics }, entry);
+    const resultContext = pruner.prune(resolution, { mode, noMetrics, targetSymbol: symbol }, entry);
 
     const projectRoot = findProjectRoot(entry);
     const contextIR = buildContextIR(resolution, entry, symbol || null, taskInstruction, resultContext, projectRoot);
@@ -245,13 +245,18 @@ Reduction: ${reduction}%
         } catch (e) {}
       }
 
-      const rawTokens = Math.ceil(rawTotalCharacters / 3.7);
-      const prunedTokens = contextIR.context_stats.tokens;
+      let rawTokens = Math.ceil(rawTotalCharacters / 3.7);
+      let prunedTokens = contextIR.context_stats.tokens;
+      if (prunedTokens > rawTokens) {
+        prunedTokens = rawTokens;
+      }
       const reductionRatio = rawTokens / (prunedTokens || 1);
       const COST_PER_TOKEN = 1.50 / 1_000_000;
       const rawCost = (rawTokens * COST_PER_TOKEN).toFixed(5);
       const prunedCost = (prunedTokens * COST_PER_TOKEN).toFixed(5);
-      const percentSavings = Math.round((1 - prunedTokens / (rawTokens || 1)) * 100);
+      const percentSavings = rawTokens > 0 
+        ? Math.max(0, Math.round((1 - prunedTokens / rawTokens) * 100))
+        : 0;
 
       const metricsMsg = `
 --- ContextIt Slicing Metrics ---
@@ -262,9 +267,13 @@ Estimated Cost Savings: ${percentSavings}% ($${rawCost} -> $${prunedCost})
 
       if (output) {
         console.log(`Context compressed successfully and written to ${output}`);
-        console.log(metricsMsg);
+        if (!noMetrics) {
+          console.log(metricsMsg);
+        }
       } else {
-        console.error('\n' + metricsMsg);
+        if (!noMetrics) {
+          console.error('\n' + metricsMsg);
+        }
       }
     }
 

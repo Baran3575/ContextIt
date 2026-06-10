@@ -114,7 +114,13 @@ export function buildContextIR(
     };
   }
 
-  const outputTokens = Math.ceil(outputContext.length / 3.7);
+  const cleanOutput = outputContext
+    .replace(/^# ContextIt: Compressed Project Context\n/, '')
+    .replace(/^<!-- fingerprint: [^\n]+\n\n/, '')
+    .replace(/^> \[!NOTE\]\n(?:> [^\n]*\n)*/m, '')
+    .trim();
+  const outputTokens = Math.ceil(cleanOutput.length / 3.7);
+
 
   return {
     metadata: {
