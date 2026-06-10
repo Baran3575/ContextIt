@@ -15,14 +15,14 @@
 These metrics represent actual empirical measurements obtained by executing the ContextIt dependency resolver and AST pruner over synthetic and real-world codebases.
 
 #### 1. ContextIt Bench: Measured Codebase Slicing & Token Reduction (10 Real-World Projects)
-Across our benchmark of **10 real-world repositories** (covering JavaScript/TypeScript, Python, C/C++, C#) comparing the context size **without ContextIt** (ContextIt'siz / Raw Context) vs. **with ContextIt** (ContextIt ile / Pruned Context):
+Across our benchmark of **10 real-world repositories** (covering JavaScript/TypeScript, Python, C/C++, C#) comparing the context size **without ContextIt** (Raw Context) vs. **with ContextIt** (Pruned Context):
 
 - **Average Raw Codebase Size**: 329,587 tokens
 - **Average ContextIt Pruned Size**: 23,713 tokens
 - **Average Context Reduction (Slicing Ratio)**: **484.5x**
 
 ##### Detailed Benchmark Results
-| Language | Repository / Project | Target Symbol | ContextIt'siz (Raw Files / Tokens) | ContextIt ile (Pruned Files / Tokens) | Reduction (x) | Cost (ContextIt'siz) | Cost (ContextIt ile) | Savings (%) |
+| Language | Repository / Project | Target Symbol | Without ContextIt (Raw Files / Tokens) | With ContextIt (Pruned Files / Tokens) | Reduction (x) | Cost (Without ContextIt) | Cost (With ContextIt) | Savings (%) |
 |---|---|---|---|---|---|---|---|---|
 | TS/JS | Express Framework | `createApplication` | 50 / 30,550 | 4 / 916 | **33.4x** | $0.04583 | $0.00137 | **97.0%** |
 | TS/JS | NestJS Realworld App | `bootstrap` | 35 / 9,587 | 26 / 4,803 | **2.0x** | $0.01438 | $0.00720 | **50.0%** |
