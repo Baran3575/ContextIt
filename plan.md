@@ -1,80 +1,110 @@
 # ContextIt v2: MCP-Aware Context Compiler Uygulama Planı
 
-ContextIt v2, basit bir "depo kod sıkıştırıcısı (repo minifier)" olmaktan sıyrılarak, LLM (başta Claude 3.5 Sonnet olmak üzere OpenAI ve Gemini) etmenleri için tasarlanmış bir **MCP-Aware Context Compiler (MCP-Uyumlu Bağlam Derleyicisi)** olarak konumlandırılmıştır.
+**Deterministic Context Pipelines for MCP-based Agents**
+*(MCP Tabanlı Ajanlar için Deterministik Bağlam Boru Hatları)*
 
-Felsefi yaklaşım olarak bu vizyon, **"LLVM for LLM Contexts" (LLM Bağlamları için LLVM)** olarak tanımlanabilir. Kaynak kodu, araç şemalarını (Tool Schemas) ve görev tanımlarını (Task Descriptions) girdi olarak alıp; bunları optimize edilmiş, önbellek-hizalı (cache-aligned) ve deterministik bir **Ara Temsil (IR - Intermediate Representation)** bağlam paketine derler.
-
-V2'nin temel değeri:
-❌ **"Daha ucuz bir araç yapıyoruz"** değil,
-✅ **"Deterministik, önbellek dostu ve ölçülebilir bağlam boru hatları (deterministic context pipelines) kuruyoruz"** olmalıdır.
+ContextIt v2, LLM (başta Claude 3.5 Sonnet olmak üzere) etmenleri için tasarlanmış, kaynak kodları, araç şemalarını (Tool Schemas) ve görev tanımlarını (Task Descriptions) girdi olarak alıp optimize edilmiş bir **Ara Temsile (IR - Intermediate Representation)** derleyen **MCP-Aware Context Compiler (MCP-Uyumlu Bağlam Derleyicisi)** altyapısıdır.
 
 ---
 
-## 💡 Temel Değer Önerisi & Yenilikler
+## 🧠 Context IR Nedir ve Yapısı Nasıldır?
 
-### 1. Deterministic Ordering & Cache Alignment (Önbellek Hizalama)
-Çoğu araç dosyaları rastgele veya import sırasına göre toplar. Bu durum, mantıken aynı olan iki istekte bile farklı prompt önbellek yapıları üretir ve cache hit oranını düşürür.
-*   **Örnek**:
-    *   *İstek 1*: `ToolA` &rarr; `ToolB` &rarr; `ToolC`
-    *   *İstek 2*: `ToolB` &rarr; `ToolA` &rarr; `ToolC` (Farklı sıra nedeniyle önbellek bozulur ❌)
-*   **V2 Çözümü**: ContextIt v2, girdileri deterministik bir topolojik sıralamaya dizer. `Same Repo + Same Task + Same Tools` denkleminde her zaman `Same Prompt Prefix` elde edilerek **cache hit olasılığı maksimuma çıkarılır**. Simüle edilmiş testlerde %90'a varan cache hit oranları gözlemlenmiştir.
+Bir derleyicinin kalbi Ara Temsildir (IR). ContextIt v2, kaynak kod deposunu, aktif MCP araç şemalarını ve geliştirici görevini aşağıdaki şemaya göre **Context IR** yapısına derler:
 
-### 2. Context Fingerprinting (Bağlam Parmak İzi)
-Her derleme çıktısına benzersiz bir imza (signature) atanacaktır:
-$$\text{Repo Hash} + \text{Task Hash} + \text{Tool Hash} \implies \text{ctx://8f3a21c}$$
-Bu parmak izi sayesinde önbellek analizi, diff alma, benchmark testleri ve çıktının yeniden üretilebilirliği (reproducibility) doğrudan takip edilebilecek, bağlam boru hattı tam anlamıyla deterministik ve izlenebilir olacaktır.
+```json
+{
+  "metadata": {
+    "fingerprint": "ctx://8f3a21c",
+    "entryPoint": "src/main.ts",
+    "targetSymbol": "bootstrap"
+  },
+  "task": {
+    "instruction": "Fix bug in authentication token expiration logic"
+  },
+  "tools": [
+    {
+      "name": "read_file",
+      "minimizedSchema": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string" }
+        },
+        "required": ["path"]
+      }
+    }
+  ],
+  "graph": {
+    "nodes": [
+      { "id": "src/main.ts::bootstrap", "type": "function" },
+      { "id": "src/auth/service.ts::AuthService", "type": "class" }
+    ],
+    "edges": [
+      { "source": "src/main.ts::bootstrap", "target": "src/auth/service.ts::AuthService" }
+    ]
+  },
+  "files": {
+    "src/auth/service.ts": {
+      "imports": [
+        { "source": "./jwt", "specifiers": [{ "localName": "JwtHelper", "exportName": "JwtHelper" }] }
+      ],
+      "activeSymbols": ["AuthService"]
+    }
+  }
+}
+```
 
-### 3. Ölçülebilir Optimizasyon Geçişleri (Measurable Optimization Passes)
-LLVM'de olduğu gibi, ContextIt v2'deki her optimizasyon adımı (pass) bağımsız olarak ölçülebilir ve raporlanabilir olacaktır:
-*   **Pass #1: Schema Minimization**: Araç şemalarındaki gereksiz açıklamaların, enum yapılarının ve tekrarların sıkıştırılması (Token kazanım hedefi: ~%10-%15).
-*   **Pass #2: Dependency Pruning**: Kullanılmayan imports/symbols yapılarının AST analizleriyle budanması (Token kazanım hedefi: ~%60-%80).
-*   **Pass #3: Cache Alignment**: Önbellek bloklarının hizalanarak tekrar kullanılabilirliğinin artırılması (Önbellek kazanım hedefi: +%30-%50 cache reuse).
+### Context IR Sayesinde:
+*   **Ayrıştırılabilirlik (Separation of Concerns)**: Kaynak kod bağımlılıkları (`graph` ve `files`), araç şemaları (`tools`) ve görev tanımı (`task`) tek bir yapıda soyutlanır.
+*   **Ölçülebilirlik (Measurability)**: Derleyicinin uygulayacağı her optimizasyon geçişi (pass) bu IR üzerinde çalışır ve çıktı token değişimleri bağımsız olarak ölçümlenebilir.
 
-### 4. Empirical Attention Placement (Empirik Dikkat Yerleşimi)
-En önemli kod bloklarını "her zaman sona yerleştirme" varsayımı yerine empirik bir yaklaşım uygulanacaktır. Modern LLM'lerin (Sonnet, Opus, GPT-4o, Gemini) dikkat (attention) mimarileri karmaşıktır (baş, son, tekrar eden kısımlar farklı ağırlıklara sahiptir).
-*   ContextIt v2; model ailesine göre en iyi bağlam yerleşim düzenini (layout) empirik benchmark testleri (head, tail, duplicate vb.) ile analiz edip otomatik optimize eden bir yerleşim motoru barındıracaktır.
+---
+
+## ⚙️ Compiler & Optimizer Pipeline Scoping
+
+Kapsam genişlemesini (scope creep) önlemek amacıyla, v2'nin ilk sürümünde çoklu model backend'leri yerine **tek ve güçlü bir optimizasyon hattına** odaklanılacaktır:
+
+```
+[Source Code + Tools + Task]
+            ↓
+    [Generic Context IR]
+            ↓
+    [Generic Optimizer]  ← (Schema Minimizer, Dependency Pruning, Cache Alignment Passes)
+            ↓
+    [Claude Backend]     ← (Claude 3.5 Sonnet Prompt Caching ve Attention yapılarına özel çıktı)
+```
+
+Bu sayede:
+1.  Genel Ara Temsil (Context IR) ve Genel Optimizasyon Motoru mimarisi kurulur.
+2.  İlk aşamada sadece **Claude Backend**'i tam performanslı hale getirilerek konsept kanıtlanır (Proof of Concept).
+3.  İlerleyen sürümlerde `GPT Backend`, `Gemini Backend` veya `Open-weight Backend` modülleri kolayca bu boru hattına eklenebilir.
 
 ---
 
 ## 📅 Yol Haritası ve Fazlar
 
-```mermaid
-graph TD
-    Phase1[Faz 1: Cache Alignment Engine] --> Phase2[Faz 2: Tool Schema Minimizer]
-    Phase2 --> Phase3[Faz 3: Context Fingerprinting & Placement]
-    Phase3 --> Phase4[Faz 4: Advanced MCP Server V2]
-    Phase4 --> Phase5[Faz 5: Empirical Passes & Costing Benchmarks]
-```
+### 🛠️ Faz 1: Deterministic Cache Alignment Engine (Önbellek Hizalama)
+*   **Deterministik Topolojik Sıralama**: Bağımlılık ağacındaki döngüleri çözüp, aynı seviyedeki dosyaları alfabetik olarak deterministik sıralayan algoritmanın yazılması.
+*   **Dosya Rol Sınıflandırması**: Dosyaları kararlılık derecelerine göre sıralayarak en az değişenlerin üstte kalmasını sağlayan hizalama (alignment) geçişi.
 
-### 📋 Faz Ayrıntıları
-
-#### 🛠️ Faz 1: Deterministic Cache Alignment Engine
-*   **Dosya Rol Sınıflandırması**: Dosyaları kararlılık derecelerine göre sıralama:
-    1.  *Static-Global*: Global veri modelleri, şemalar, harici kütüphane API imzaları (En az değişen - Önbellek başlangıcı).
-    2.  *Core Logic*: Çekirdek iş kuralları, veritabanı modelleri.
-    3.  *Utilities*: Yardımcı kütüphaneler, helper sınıfları.
-    4.  *Target/Entry*: Üzerinde çalışılan hedef sembol ve giriş dosyası (En son yazılır - Değişse bile üstteki seviyelerin önbelleği korunur).
-*   **Topolojik & Alfabetik Sıralama**: Bağımlılık ağacındaki döngüleri çözüp, aynı seviyedeki dosyaları alfabetik olarak deterministik sıralayan algoritmanın yazılması.
-
-#### 📦 Faz 2: MCP Tool Schema Minimizer
+### 📦 Faz 2: MCP Tool Schema Minimizer
 *   **Anlamsal Şema Küçültücü**: MCP SDK'sı tarafından LLM'e kayıt edilen araç şemalarının JSON yapılarındaki `description` alanlarını optimize etme.
-*   **Girdi Tipleri Sıkıştırması**: Parametre tiplerini ve enum yapılarını minimum token tüketecek şekilde derleme.
-*   **Sistem Prompt Sıkıştırma**: MCP sunucusunun LLM'e enjekte ettiği başlangıç talimatlarını ve metrik notlarını en sade haline getirme.
+*   **Girdi Tipleri Sıkıştırması**: Parametre tiplerini ve şemalarını minimum token tüketecek şekilde sadeleştirme.
 
-#### ⚙️ Faz 3: Context Fingerprinting & Empirical Layout Optimization
+### ⚙️ Faz 3: Context Fingerprinting & Claude Layout Backend
 *   **Context Fingerprinting Modülü**: Derlenen bağlam için `ctx://<sha256-prefix>` formatında deterministik parmak izi üreten ve bunu bağlam başlığına ekleyen sistem.
-*   **Empirical Layout Engine**: Yapay zekaya sunulacak kod bloklarının sırasını model ailesine göre (Sonnet, Opus, GPT, Gemini) optimize eden motor. En önemli kısımların (kod gövdeleri veya imzalar) nereye yerleştirileceği empirik benchmark testleriyle (head, tail, duplicate vb.) belirlenir.
-*   **Token Sınırı Bütçeleyicisi (Token Budgeter)**: Belirli bir token limiti (örneğin max 10k token) girildiğinde, bağımlılık ağacında önem sırasına göre kodları kırpan akıllı paketleyici.
+*   **Claude Layout Backend**: Claude 3.5 Sonnet'in prompt önbellekleme (prompt caching) sınırlarına ve dikkat (attention) yapısına uygun çıktı üretici modül.
 
-#### 🌐 Faz 4: Advanced MCP Server v2
+### 🌐 Faz 4: Advanced MCP Server v2
 *   Yeni MCP araçlarının eklenmesi:
     *   `compile_prompt_context`: Giriş sembolü, mod ve token bütçesi alarak derlenmiş, sıralanmış ve minimize edilmiş nihai prompt bağlamını döndürür.
     *   `get_cache_status`: Mevcut projenin tahmini cache durumunu ve hangi dosyaların cache'i bozduğunu raporlar.
-*   Termux ve masaüstü IDE entegrasyonlarında sıfır konfigürasyonla çalışacak otomatik kurulum aracı (`contextit-setup`).
 
-#### 📊 Faz 5: Empirical Passes & Costing Benchmarks
-*   **Ölçülebilir Geçişlerin Metrikleştirilmesi**: Her derleme adımının (Pass 1, Pass 2, Pass 3) ne kadar kazandırdığını ölçen bağımsız test suite'i.
-*   **Simüle Edilmiş Oturum Maliyet Analizi (CTO-Friendly)**: Belirli benchmark varsayımlarında elde edilen tahmini maliyet deltasını model bazında (Claude Fable, Opus, Sonnet, Gemini Flash) raporlayan simülasyon tablosu.
+### 📊 Faz 5: Ölçülebilir Optimizasyon Geçişleri ve Metrikleri
+*   **Optimizasyon Adımlarının Ölçülmesi**: Her derleme adımının (Pass 1, Pass 2, Pass 3) ne kadar kazandırdığını ölçen bağımsız test suite'i:
+    *   `Pass 1: Schema Minimizer` (Token kazanım hedefi: ~%10-%15)
+    *   `Pass 2: Dependency Pruning` (Token kazanım hedefi: ~%60-%80)
+    *   `Pass 3: Cache Alignment` (Önbellek kazanım hedefi: +%30-%50 cache reuse)
+*   **Simüle Edilmiş Oturum Maliyet Analizi (CTO-Friendly)**: Belirli varsayımlarda elde edilen tahmini maliyet deltasını model bazında raporlayan simülasyon tablosu.
 
 ---
 
@@ -90,5 +120,5 @@ graph TD
 
 ---
 
-## 🚀 Anthropic & Ekosistem Perspektifi
-Anthropic ve açık kaynak geliştiricileri için bu projenin temel değeri "sadece ucuz olması" değil; **bağlam boru hatlarının deterministik, öngörülebilir ve modelden bağımsız (vendor-neutral) hale getirilmesidir**. ContextIt, LLM ajan ekosistemini büyütecek açık kaynaklı bir altyapı standart adayıdır.
+## 🚀 Anthropic Başvurusu İçin Kilit Noktalar
+Anthropic ve açık kaynak geliştiricileri için bu projenin temel değeri sadece maliyet tasarrufu değil, **bağlam boru hatlarının deterministik, öngörülebilir ve açık standartlara dayalı (MCP-native) hale getirilmesidir**. ContextIt, LLM ajan ekosistemini büyütecek açık kaynaklı bir altyapı standart adayıdır.
